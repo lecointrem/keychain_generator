@@ -1,0 +1,81 @@
+.field {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.field-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+  color: var(--text-dim);
+  font-size: 12.5px;
+}
+
+.field-value {
+  color: var(--accent-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.field input[type='range'] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.field input[type='text'],
+.field select {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.toggle-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.toggle-field input[type='checkbox'] {
+  width: 34px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.section {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 0;
+}
+
+.section summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.section summary::-webkit-details-marker {
+  display: none;
+}
+
+.section summary::before {
+  content: '▸';
+  color: var(--text-dim);
+  margin-right: 6px;
+  transition: transform 0.15s ease;
+}
+
+.section[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.section-body {
+  margin-top: 10px;
+  padding-left: 2px;
+}

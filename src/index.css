@@ -1,0 +1,33 @@
+:root {
+  color-scheme: dark;
+  --bg: #16171c;
+  --panel: #1e2027;
+  --panel-2: #262932;
+  --border: #333644;
+  --text: #e7e8ec;
+  --text-dim: #9a9cab;
+  --accent: #6c8cff;
+  --accent-2: #4fd1c5;
+  --danger: #ff6b6b;
+  font: 14px/1.4 system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input, select {
+  font: inherit;
+}
