@@ -176,7 +176,7 @@ export function ControlsPanel({ onExport, exporting }: Props) {
         {config.qr.enabled && (
           <>
             <TextField
-              label="Contenu (URL, texte...)"
+              label="Valeur (URL, texte...)"
               value={config.qr.text}
               placeholder="https://..."
               onChange={(text) => setQR({ text })}
@@ -197,6 +197,9 @@ export function ControlsPanel({ onExport, exporting }: Props) {
               unit=""
               onChange={(sizeRatio) => setQR({ sizeRatio })}
             />
+            <p className="field-hint">
+              Position : décalage par rapport au centre de la plaque (0 mm = centre, Y+ vers le haut).
+            </p>
             <SliderField
               label="Décalage X"
               value={config.qr.offsetX}
@@ -237,13 +240,18 @@ export function ControlsPanel({ onExport, exporting }: Props) {
         )}
       </Section>
 
-      <Section title="Logo d'entreprise" defaultOpen={false}>
+      <Section title="Logo d'entreprise" defaultOpen>
         <ToggleField label="Activer" checked={config.logo.enabled} onChange={(enabled) => setLogo({ enabled })} />
         <label className="field">
           <div className="field-row">
             <span>Image (PNG, JPG, SVG)</span>
           </div>
           <input type="file" accept="image/*" onChange={handleLogoUpload} />
+          {config.logo.imageDataUrl && (
+            <div className="logo-preview">
+              <img src={config.logo.imageDataUrl} alt="Aperçu du logo" />
+            </div>
+          )}
         </label>
         {config.logo.enabled && (
           <>
@@ -262,6 +270,10 @@ export function ControlsPanel({ onExport, exporting }: Props) {
               unit=""
               onChange={(sizeRatio) => setLogo({ sizeRatio })}
             />
+            <p className="field-hint">
+              Position : décalage par rapport au centre de la plaque (0 mm = centre, Y+ vers le haut). Par défaut, le
+              logo est placé un peu au-dessus du centre.
+            </p>
             <SliderField
               label="Décalage X"
               value={config.logo.offsetX}
