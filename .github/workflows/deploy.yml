@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - claude/practical-goodall-sj3jin
   workflow_dispatch:
 
 permissions:
