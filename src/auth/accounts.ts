@@ -16,4 +16,8 @@ export const ACCOUNTS: Account[] = [
     username: 'admin',
     passwordHash: 'ad3f6b58e553b16002d37e0fce201ba8921342218854d3b1c6a5db5f07bec8a8',
   },
+  {
+    username: 'marc',
+    passwordHash: 'c79195c98f90ba9f03b6972e6e7e99c39c85670bda33e6411cbf05ae8ee9bdcb',
+  },
 ];
