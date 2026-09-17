@@ -170,8 +170,8 @@ export function ControlsPanel({ onExport, exporting }: Props) {
             <SliderField
               label="Décalage horizontal"
               value={config.hole.offsetX}
-              min={-30}
-              max={30}
+              min={-100}
+              max={100}
               step={0.5}
               unit=" mm"
               onChange={(offsetX) => setHole({ offsetX })}
