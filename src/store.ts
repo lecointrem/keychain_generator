@@ -36,6 +36,7 @@ export const defaultConfig: KeychainConfig = {
     sizeRatio: 0.55,
     offsetX: 0,
     offsetY: -2,
+    rotation: 0,
     moduleHeight: 0.6,
     mode: 'raised',
     errorCorrection: 'M',
@@ -47,6 +48,7 @@ export const defaultConfig: KeychainConfig = {
     sizeRatio: 0.3,
     offsetX: 0,
     offsetY: 10,
+    rotation: 0,
     reliefHeight: 0.6,
     mode: 'raised',
     resolution: 48,
@@ -79,6 +81,19 @@ export const defaultConfig: KeychainConfig = {
     fontFamily: 'roboto',
     resolution: 32,
   },
+  text3: {
+    enabled: false,
+    text: 'TEXTE 3',
+    height: 3,
+    offsetX: -20,
+    offsetY: 0,
+    rotation: 270,
+    reliefHeight: 0.6,
+    mode: 'raised',
+    bold: false,
+    fontFamily: 'roboto',
+    resolution: 32,
+  },
   nfc: {
     enabled: false,
     diameter: 25,
@@ -103,6 +118,7 @@ interface KeychainStore {
   setLogo: (patch: Partial<LogoConfig>) => void;
   setText1: (patch: Partial<TextZoneConfig>) => void;
   setText2: (patch: Partial<TextZoneConfig>) => void;
+  setText3: (patch: Partial<TextZoneConfig>) => void;
   setNFC: (patch: Partial<NFCConfig>) => void;
   setExport: (patch: Partial<ExportConfig>) => void;
   setColor: (color: string) => void;
@@ -151,6 +167,8 @@ export const useKeychainStore = create<KeychainStore>((set) => ({
     set((s) => ({ config: { ...s.config, text1: { ...s.config.text1, ...patch } } })),
   setText2: (patch) =>
     set((s) => ({ config: { ...s.config, text2: { ...s.config.text2, ...patch } } })),
+  setText3: (patch) =>
+    set((s) => ({ config: { ...s.config, text3: { ...s.config.text3, ...patch } } })),
   setNFC: (patch) =>
     set((s) => ({ config: { ...s.config, nfc: { ...s.config.nfc, ...patch } } })),
   setExport: (patch) =>

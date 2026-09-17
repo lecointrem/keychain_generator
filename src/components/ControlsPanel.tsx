@@ -38,6 +38,7 @@ export function ControlsPanel({ onExport, exporting }: Props) {
   const setLogo = useKeychainStore((s) => s.setLogo);
   const setText1 = useKeychainStore((s) => s.setText1);
   const setText2 = useKeychainStore((s) => s.setText2);
+  const setText3 = useKeychainStore((s) => s.setText3);
   const setNFC = useKeychainStore((s) => s.setNFC);
   const setExport = useKeychainStore((s) => s.setExport);
   const setColor = useKeychainStore((s) => s.setColor);
@@ -277,6 +278,15 @@ export function ControlsPanel({ onExport, exporting }: Props) {
               onChange={(offsetY) => setQR({ offsetY })}
             />
             <SliderField
+              label="Rotation"
+              value={config.qr.rotation}
+              min={0}
+              max={360}
+              step={1}
+              unit="°"
+              onChange={(rotation) => setQR({ rotation })}
+            />
+            <SliderField
               label="Hauteur du relief"
               value={config.qr.moduleHeight}
               min={0.2}
@@ -351,6 +361,15 @@ export function ControlsPanel({ onExport, exporting }: Props) {
               onChange={(offsetY) => setLogo({ offsetY })}
             />
             <SliderField
+              label="Rotation"
+              value={config.logo.rotation}
+              min={0}
+              max={360}
+              step={1}
+              unit="°"
+              onChange={(rotation) => setLogo({ rotation })}
+            />
+            <SliderField
               label="Hauteur du relief"
               value={config.logo.reliefHeight}
               min={0.2}
@@ -391,6 +410,7 @@ export function ControlsPanel({ onExport, exporting }: Props) {
 
       <TextZoneSection title="Texte libre 1" zone={config.text1} onChange={setText1} />
       <TextZoneSection title="Texte libre 2" zone={config.text2} onChange={setText2} />
+      <TextZoneSection title="Texte libre 3" zone={config.text3} onChange={setText3} />
 
       <Section title="Tag NFC intégré" defaultOpen={false}>
         <ToggleField label="Activer" checked={config.nfc.enabled} onChange={(enabled) => setNFC({ enabled })} />

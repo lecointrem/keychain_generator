@@ -29,6 +29,7 @@ export interface QRConfig {
   sizeRatio: number; // 0..1, fraction of the smallest plate dimension
   offsetX: number; // mm from center
   offsetY: number; // mm from center
+  rotation: number; // degrees, clockwise
   moduleHeight: number; // mm relief height
   mode: ReliefMode;
   errorCorrection: 'L' | 'M' | 'Q' | 'H';
@@ -41,6 +42,7 @@ export interface LogoConfig {
   sizeRatio: number; // 0..1 fraction of smallest plate dimension (width of logo)
   offsetX: number;
   offsetY: number;
+  rotation: number; // degrees, clockwise
   reliefHeight: number; // mm
   mode: ReliefMode;
   resolution: number; // pixels across the logo's longest side
@@ -84,6 +86,7 @@ export interface KeychainConfig {
   logo: LogoConfig;
   text1: TextZoneConfig;
   text2: TextZoneConfig;
+  text3: TextZoneConfig;
   nfc: NFCConfig;
   color: string;
   export: ExportConfig;

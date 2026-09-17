@@ -21,7 +21,8 @@ function App() {
       const logoGrid = config.logo.enabled ? await buildLogoGrid(config.logo) : null;
       const text1Grid = config.text1.enabled ? await buildTextGrid(config.text1) : null;
       const text2Grid = config.text2.enabled ? await buildTextGrid(config.text2) : null;
-      await exportKeychainSTL(config, { qrGrid, logoGrid, text1Grid, text2Grid });
+      const text3Grid = config.text3.enabled ? await buildTextGrid(config.text3) : null;
+      await exportKeychainSTL(config, { qrGrid, logoGrid, text1Grid, text2Grid, text3Grid });
     } catch (e) {
       alert('Erreur lors de l\'export STL : ' + (e instanceof Error ? e.message : String(e)));
     } finally {
