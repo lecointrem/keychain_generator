@@ -30,6 +30,7 @@ export const defaultConfig: KeychainConfig = {
     enabled: true,
     width: 1.5,
     height: 0.8,
+    color: '#e6e6e6',
   },
   qr: {
     enabled: true,
@@ -42,6 +43,7 @@ export const defaultConfig: KeychainConfig = {
     mode: 'raised',
     errorCorrection: 'M',
     quietZone: 1,
+    color: '#1a1a1a',
   },
   logo: {
     enabled: false,
@@ -55,6 +57,7 @@ export const defaultConfig: KeychainConfig = {
     resolution: 48,
     threshold: 128,
     invert: false,
+    color: '#1a1a1a',
   },
   text1: {
     enabled: false,
@@ -68,6 +71,7 @@ export const defaultConfig: KeychainConfig = {
     bold: false,
     fontFamily: 'roboto',
     resolution: 32,
+    color: '#1a1a1a',
   },
   text2: {
     enabled: false,
@@ -81,6 +85,7 @@ export const defaultConfig: KeychainConfig = {
     bold: false,
     fontFamily: 'roboto',
     resolution: 32,
+    color: '#1a1a1a',
   },
   text3: {
     enabled: false,
@@ -94,6 +99,7 @@ export const defaultConfig: KeychainConfig = {
     bold: false,
     fontFamily: 'roboto',
     resolution: 32,
+    color: '#1a1a1a',
   },
   nfc: {
     enabled: false,

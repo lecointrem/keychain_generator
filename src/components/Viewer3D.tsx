@@ -1,15 +1,14 @@
 import { Canvas } from '@react-three/fiber';
 import { Grid, OrbitControls, Center } from '@react-three/drei';
-import * as THREE from 'three';
+import type { ColoredPiece } from '../geometry/buildKeychain';
 import { KeychainMesh } from './KeychainMesh';
 
 interface Props {
-  geometry: THREE.BufferGeometry | null;
-  color: string;
+  pieces: ColoredPiece[] | null;
   error: string | null;
 }
 
-export function Viewer3D({ geometry, color, error }: Props) {
+export function Viewer3D({ pieces, error }: Props) {
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <Canvas
@@ -36,7 +35,7 @@ export function Viewer3D({ geometry, color, error }: Props) {
         <hemisphereLight args={['#ffffff', '#40424e', 0.5]} />
 
         <Center>
-          <KeychainMesh geometry={geometry} color={color} />
+          <KeychainMesh pieces={pieces} />
         </Center>
 
         <Grid
@@ -60,7 +59,7 @@ export function Viewer3D({ geometry, color, error }: Props) {
           Erreur de génération : {error}
         </div>
       )}
-      {!geometry && !error && <div className="viewer-overlay">Génération en cours…</div>}
+      {!pieces && !error && <div className="viewer-overlay">Génération en cours…</div>}
     </div>
   );
 }

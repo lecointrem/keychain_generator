@@ -1,7 +1,7 @@
 import type { ChangeEvent } from 'react';
 import { useKeychainStore } from '../store';
 import type { ShapeType, ReliefMode } from '../types';
-import { SelectField, Section, SliderField, TextField, ToggleField } from './fields';
+import { ColorField, SelectField, Section, SliderField, TextField, ToggleField } from './fields';
 import { TextZoneSection } from './TextZoneSection';
 import { downloadBlob } from '../utils/download';
 
@@ -26,10 +26,11 @@ const EC_OPTIONS = [
 
 interface Props {
   onExport: () => void;
+  onExport3MF: () => void;
   exporting: boolean;
 }
 
-export function ControlsPanel({ onExport, exporting }: Props) {
+export function ControlsPanel({ onExport, onExport3MF, exporting }: Props) {
   const config = useKeychainStore((s) => s.config);
   const setShape = useKeychainStore((s) => s.setShape);
   const setHole = useKeychainStore((s) => s.setHole);
@@ -249,6 +250,7 @@ export function ControlsPanel({ onExport, exporting }: Props) {
               unit=" mm"
               onChange={(height) => setContour({ height })}
             />
+            <ColorField label="Couleur" value={config.contour.color} onChange={(color) => setContour({ color })} />
           </>
         )}
       </Section>
@@ -327,6 +329,9 @@ export function ControlsPanel({ onExport, exporting }: Props) {
               unit=" mod."
               onChange={(quietZone) => setQR({ quietZone })}
             />
+            {config.qr.mode === 'raised' && (
+              <ColorField label="Couleur" value={config.qr.color} onChange={(color) => setQR({ color })} />
+            )}
           </>
         )}
       </Section>
@@ -427,6 +432,9 @@ export function ControlsPanel({ onExport, exporting }: Props) {
             <p className="field-hint">
               Inverse les zones qui deviennent du relief : ce qui était plein devient vide, et inversement.
             </p>
+            {config.logo.mode === 'raised' && (
+              <ColorField label="Couleur" value={config.logo.color} onChange={(color) => setLogo({ color })} />
+            )}
           </>
         )}
       </Section>
@@ -541,16 +549,26 @@ export function ControlsPanel({ onExport, exporting }: Props) {
       <Section title="Apparence" defaultOpen={false}>
         <label className="field">
           <div className="field-row">
-            <span>Couleur (aperçu uniquement)</span>
+            <span>Couleur de la base</span>
           </div>
           <input type="color" value={config.color} onChange={(e) => setColor(e.target.value)} />
         </label>
+        <p className="field-hint">
+          Utilisée dans l'aperçu 3D et dans l'export 3MF (une couleur par élément, pour l'impression multicouleur).
+        </p>
       </Section>
 
       <Section title="Export" defaultOpen={false}>
         <TextField label="Nom de fichier" value={config.export.filename} onChange={(filename) => setExport({ filename })} />
+        <button className="btn-primary" type="button" onClick={onExport3MF} disabled={exporting} style={{ marginBottom: 8 }}>
+          {exporting ? 'Génération…' : 'Exporter en 3MF (multicouleur)'}
+        </button>
+        <p className="field-hint">
+          Le 3MF porte la couleur de chaque élément (base, contour, QR, logo, textes en relief) — les slicers
+          compatibles (BambuStudio, OrcaSlicer...) les assignent automatiquement à un filament/AMS.
+        </p>
         <ToggleField
-          label="Export multi-pièces (multicouleur)"
+          label="Export STL multi-pièces (multicouleur)"
           checked={config.export.splitParts}
           onChange={(splitParts) => setExport({ splitParts })}
         />

@@ -21,6 +21,7 @@ export interface ContourConfig {
   enabled: boolean;
   width: number; // mm, border thickness
   height: number; // mm, extra height added on top of base thickness
+  color: string; // print color for this piece (used in the 3D preview and 3MF export)
 }
 
 export interface QRConfig {
@@ -34,6 +35,7 @@ export interface QRConfig {
   mode: ReliefMode;
   errorCorrection: 'L' | 'M' | 'Q' | 'H';
   quietZone: number; // modules of quiet zone margin
+  color: string; // print color when raised (used in the 3D preview and 3MF export)
 }
 
 export interface LogoConfig {
@@ -48,6 +50,7 @@ export interface LogoConfig {
   resolution: number; // pixels across the logo's longest side
   threshold: number; // 0..255 grayscale cutoff
   invert: boolean;
+  color: string; // print color when raised (used in the 3D preview and 3MF export)
 }
 
 export interface TextZoneConfig {
@@ -62,6 +65,7 @@ export interface TextZoneConfig {
   bold: boolean;
   fontFamily: string; // key into FONT_OPTIONS, or a custom font's cssFamily (src/fonts.ts)
   resolution: number; // pixels per letter height, controls crispness
+  color: string; // print color when raised (used in the 3D preview and 3MF export)
 }
 
 export interface CustomFont {

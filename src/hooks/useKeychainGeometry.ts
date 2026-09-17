@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import type * as THREE from 'three';
-import type { KeychainConfig } from '../types';
-import { buildKeychainGeometry } from '../geometry/buildKeychain';
+import { buildKeychainPieces, type ColoredPiece } from '../geometry/buildKeychain';
 import { buildQRGrid } from '../geometry/buildQR';
 import { buildLogoGrid } from '../geometry/buildLogo';
 import { buildTextGrid } from '../geometry/buildText';
 import type { ReliefGrid } from '../geometry/relief';
+import type { KeychainConfig } from '../types';
 import { useDebouncedValue } from './useDebouncedValue';
 
 export function useKeychainGeometry(config: KeychainConfig) {
@@ -15,9 +14,9 @@ export function useKeychainGeometry(config: KeychainConfig) {
   const [text1Grid, setText1Grid] = useState<ReliefGrid | null>(null);
   const [text2Grid, setText2Grid] = useState<ReliefGrid | null>(null);
   const [text3Grid, setText3Grid] = useState<ReliefGrid | null>(null);
-  const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
+  const [pieces, setPieces] = useState<ColoredPiece[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const geometryRef = useRef<THREE.BufferGeometry | null>(null);
+  const piecesRef = useRef<ColoredPiece[] | null>(null);
 
   useEffect(() => {
     if (!debounced.qr.enabled) {
@@ -139,10 +138,10 @@ export function useKeychainGeometry(config: KeychainConfig) {
 
   useEffect(() => {
     try {
-      const geo = buildKeychainGeometry(debounced, { qrGrid, logoGrid, text1Grid, text2Grid, text3Grid });
-      if (geometryRef.current) geometryRef.current.dispose();
-      geometryRef.current = geo;
-      setGeometry(geo);
+      const built = buildKeychainPieces(debounced, { qrGrid, logoGrid, text1Grid, text2Grid, text3Grid });
+      piecesRef.current?.forEach((p) => p.geometry.dispose());
+      piecesRef.current = built;
+      setPieces(built);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de génération de la géométrie');
@@ -151,10 +150,10 @@ export function useKeychainGeometry(config: KeychainConfig) {
 
   useEffect(
     () => () => {
-      geometryRef.current?.dispose();
+      piecesRef.current?.forEach((p) => p.geometry.dispose());
     },
     [],
   );
 
-  return { geometry, error };
+  return { pieces, error };
 }

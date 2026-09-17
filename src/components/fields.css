@@ -32,6 +32,22 @@
   padding: 6px 8px;
 }
 
+.color-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.color-field input[type='color'] {
+  width: 40px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
 .toggle-field {
   display: flex;
   justify-content: space-between;

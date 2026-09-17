@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ADDITION, Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg';
 import type { KeychainConfig, ReliefMode, TextZoneConfig } from '../types';
-import { buildPlateGeometry, plateTopZ } from './buildPlate';
+import { buildBasePlateGeometry, buildContourGeometry, buildPlateGeometry, plateTopZ } from './buildPlate';
 import { shapeBounds } from './shapeOutline';
 import {
   buildReliefGeometry,
@@ -144,6 +144,96 @@ export function buildKeychainParts(config: KeychainConfig, inputs: KeychainInput
   const relief = additions.length === 0 ? null : additions.length === 1 ? additions[0] : mergeGeometries(additions, false);
 
   return { base, relief, hasCavities };
+}
+
+export interface ColoredPiece {
+  id: string;
+  label: string;
+  color: string;
+  geometry: THREE.BufferGeometry;
+}
+
+/**
+ * Builds each colorable part of the keychain as its own separate solid: the base
+ * plate, the contour ring, and any QR/logo/text zone that's in "raised" mode (an
+ * engraved zone has no volume of its own — it's a void in whatever it's cut into,
+ * so it always takes on the color of that piece). Used for the multi-color live
+ * preview and for 3MF export, where each piece can be assigned its own material.
+ */
+export function buildKeychainPieces(config: KeychainConfig, inputs: KeychainInputs): ColoredPiece[] {
+  const bounds = shapeBounds(config.shape);
+  const zTop = plateTopZ(config);
+  const thickness = config.shape.thickness;
+
+  const qrGeom = buildFeatureGeometries(
+    inputs.qrGrid,
+    config.qr.enabled,
+    config.qr.sizeRatio,
+    config.qr.offsetX,
+    config.qr.offsetY,
+    config.qr.rotation,
+    config.qr.moduleHeight,
+    config.qr.mode,
+    zTop,
+    thickness,
+    bounds,
+  );
+
+  const logoGeom = buildFeatureGeometries(
+    inputs.logoGrid,
+    config.logo.enabled,
+    config.logo.sizeRatio,
+    config.logo.offsetX,
+    config.logo.offsetY,
+    config.logo.rotation,
+    config.logo.reliefHeight,
+    config.logo.mode,
+    zTop,
+    thickness,
+    bounds,
+  );
+
+  const text1Geom = buildTextZoneGeometry(inputs.text1Grid, config.text1, zTop, thickness);
+  const text2Geom = buildTextZoneGeometry(inputs.text2Grid, config.text2, zTop, thickness);
+  const text3Geom = buildTextZoneGeometry(inputs.text3Grid, config.text3, zTop, thickness);
+  const nfcGeom = buildNFCPocketCutter(config.nfc, thickness);
+
+  const cutters: THREE.BufferGeometry[] = [];
+  if (qrGeom && config.qr.mode === 'engraved') cutters.push(qrGeom);
+  if (logoGeom && config.logo.mode === 'engraved') cutters.push(logoGeom);
+  if (text1Geom && config.text1.mode === 'engraved') cutters.push(text1Geom);
+  if (text2Geom && config.text2.mode === 'engraved') cutters.push(text2Geom);
+  if (text3Geom && config.text3.mode === 'engraved') cutters.push(text3Geom);
+  if (nfcGeom) cutters.push(nfcGeom);
+
+  let base: THREE.BufferGeometry = buildBasePlateGeometry(config);
+  let contour: THREE.BufferGeometry | null = buildContourGeometry(config);
+
+  if (cutters.length > 0) {
+    const cutterGeom = cutters.length === 1 ? cutters[0] : mergeGeometries(cutters, false);
+    base = csgCombine(base, cutterGeom, SUBTRACTION);
+    if (contour) contour = csgCombine(contour, cutterGeom, SUBTRACTION);
+  }
+
+  const pieces: ColoredPiece[] = [{ id: 'base', label: 'Base', color: config.color, geometry: base }];
+  if (contour) pieces.push({ id: 'contour', label: 'Contour', color: config.contour.color, geometry: contour });
+  if (qrGeom && config.qr.mode === 'raised') {
+    pieces.push({ id: 'qr', label: 'QR code', color: config.qr.color, geometry: qrGeom });
+  }
+  if (logoGeom && config.logo.mode === 'raised') {
+    pieces.push({ id: 'logo', label: 'Logo', color: config.logo.color, geometry: logoGeom });
+  }
+  if (text1Geom && config.text1.mode === 'raised') {
+    pieces.push({ id: 'text1', label: 'Texte 1', color: config.text1.color, geometry: text1Geom });
+  }
+  if (text2Geom && config.text2.mode === 'raised') {
+    pieces.push({ id: 'text2', label: 'Texte 2', color: config.text2.color, geometry: text2Geom });
+  }
+  if (text3Geom && config.text3.mode === 'raised') {
+    pieces.push({ id: 'text3', label: 'Texte 3', color: config.text3.color, geometry: text3Geom });
+  }
+
+  return pieces;
 }
 
 /** Assembles the full printable keychain geometry: plate + hole + contour + QR + logo. */

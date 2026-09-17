@@ -1,5 +1,5 @@
 import type { CustomFont, ReliefMode, TextZoneConfig } from '../types';
-import { Section, SelectField, SliderField, TextField, ToggleField } from './fields';
+import { ColorField, Section, SelectField, SliderField, TextField, ToggleField } from './fields';
 import { FONT_OPTIONS, cssFamilyFor } from '../fonts';
 
 const MODE_OPTIONS: { value: ReliefMode; label: string }[] = [
@@ -108,6 +108,9 @@ export function TextZoneSection({ title, zone, onChange, customFonts }: Props) {
             unit=" px"
             onChange={(resolution) => onChange({ resolution })}
           />
+          {zone.mode === 'raised' && (
+            <ColorField label="Couleur" value={zone.color} onChange={(color) => onChange({ color })} />
+          )}
         </>
       )}
     </Section>

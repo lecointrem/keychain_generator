@@ -95,6 +95,21 @@ export function TextField({ label, value, placeholder, onChange }: TextFieldProp
   );
 }
 
+interface ColorFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}
+
+export function ColorField({ label, value, onChange }: ColorFieldProps) {
+  return (
+    <label className="field color-field">
+      <span>{label}</span>
+      <input type="color" value={value} onChange={(e) => onChange(e.target.value)} />
+    </label>
+  );
+}
+
 export function Section({ title, children, defaultOpen = true, badge }: { title: string; children: ReactNode; defaultOpen?: boolean; badge?: ReactNode }) {
   return (
     <details className="section" open={defaultOpen}>

@@ -1,28 +1,38 @@
 import * as THREE from 'three';
 import { useMemo } from 'react';
+import type { ColoredPiece } from '../geometry/buildKeychain';
 
-interface Props {
-  geometry: THREE.BufferGeometry | null;
-  color: string;
+interface PieceMeshProps {
+  piece: ColoredPiece;
 }
 
-export function KeychainMesh({ geometry, color }: Props) {
+function PieceMesh({ piece }: PieceMeshProps) {
   const material = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color,
+        color: piece.color,
         roughness: 0.55,
         metalness: 0.05,
         side: THREE.DoubleSide,
       }),
-    [color],
+    [piece.color],
   );
 
-  if (!geometry) return null;
+  return <mesh geometry={piece.geometry} material={material} castShadow receiveShadow />;
+}
+
+interface Props {
+  pieces: ColoredPiece[] | null;
+}
+
+export function KeychainMesh({ pieces }: Props) {
+  if (!pieces) return null;
 
   return (
     <group rotation={[-Math.PI / 2, 0, 0]}>
-      <mesh geometry={geometry} material={material} castShadow receiveShadow />
+      {pieces.map((piece) => (
+        <PieceMesh key={piece.id} piece={piece} />
+      ))}
     </group>
   );
 }
