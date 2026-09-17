@@ -1,4 +1,4 @@
-import type { ReliefMode, TextZoneConfig } from '../types';
+import type { CustomFont, ReliefMode, TextZoneConfig } from '../types';
 import { Section, SelectField, SliderField, TextField, ToggleField } from './fields';
 import { FONT_OPTIONS, cssFamilyFor } from '../fonts';
 
@@ -11,9 +11,10 @@ interface Props {
   title: string;
   zone: TextZoneConfig;
   onChange: (patch: Partial<TextZoneConfig>) => void;
+  customFonts: CustomFont[];
 }
 
-export function TextZoneSection({ title, zone, onChange }: Props) {
+export function TextZoneSection({ title, zone, onChange, customFonts }: Props) {
   return (
     <Section title={title} defaultOpen={false}>
       <ToggleField label="Activer" checked={zone.enabled} onChange={(enabled) => onChange({ enabled })} />
@@ -25,11 +26,22 @@ export function TextZoneSection({ title, zone, onChange }: Props) {
               <span>Police</span>
             </div>
             <select value={zone.fontFamily} onChange={(e) => onChange({ fontFamily: e.target.value })}>
-              {FONT_OPTIONS.map((f) => (
-                <option key={f.value} value={f.value}>
-                  {f.label}
-                </option>
-              ))}
+              <optgroup label="Polices intégrées">
+                {FONT_OPTIONS.map((f) => (
+                  <option key={f.value} value={f.value}>
+                    {f.label}
+                  </option>
+                ))}
+              </optgroup>
+              {customFonts.length > 0 && (
+                <optgroup label="Mes polices">
+                  {customFonts.map((f) => (
+                    <option key={f.id} value={f.cssFamily}>
+                      {f.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </label>
           {zone.text.trim() && (

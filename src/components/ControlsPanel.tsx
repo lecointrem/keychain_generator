@@ -42,6 +42,8 @@ export function ControlsPanel({ onExport, exporting }: Props) {
   const setNFC = useKeychainStore((s) => s.setNFC);
   const setExport = useKeychainStore((s) => s.setExport);
   const setColor = useKeychainStore((s) => s.setColor);
+  const addCustomFont = useKeychainStore((s) => s.addCustomFont);
+  const removeCustomFont = useKeychainStore((s) => s.removeCustomFont);
   const reset = useKeychainStore((s) => s.reset);
   const loadConfig = useKeychainStore((s) => s.loadConfig);
 
@@ -53,6 +55,24 @@ export function ControlsPanel({ onExport, exporting }: Props) {
       setLogo({ imageDataUrl: reader.result as string, enabled: true });
     };
     reader.readAsDataURL(file);
+  }
+
+  function handleFontUpload(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const name = file.name.replace(/\.[^.]+$/, '');
+      addCustomFont({
+        id,
+        name,
+        cssFamily: `CustomFont_${id}`,
+        dataUrl: reader.result as string,
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   }
 
   function handleSaveProfile() {
@@ -408,9 +428,50 @@ export function ControlsPanel({ onExport, exporting }: Props) {
         )}
       </Section>
 
-      <TextZoneSection title="Texte libre 1" zone={config.text1} onChange={setText1} />
-      <TextZoneSection title="Texte libre 2" zone={config.text2} onChange={setText2} />
-      <TextZoneSection title="Texte libre 3" zone={config.text3} onChange={setText3} />
+      <Section title="Polices personnalisées" defaultOpen={false}>
+        <p className="field-hint">
+          Importe tes propres fichiers de police (.ttf, .otf, .woff, .woff2). Ils restent uniquement dans ton
+          navigateur — jamais publiés ni envoyés où que ce soit — et apparaissent ensuite dans le choix de police de
+          chaque zone de texte.
+        </p>
+        <label className="field">
+          <div className="field-row">
+            <span>Ajouter une police</span>
+          </div>
+          <input type="file" accept=".ttf,.otf,.woff,.woff2" onChange={handleFontUpload} />
+        </label>
+        {config.customFonts.length > 0 && (
+          <ul className="custom-font-list">
+            {config.customFonts.map((f) => (
+              <li key={f.id} style={{ fontFamily: f.cssFamily }}>
+                <span>{f.name}</span>
+                <button type="button" className="btn-ghost" onClick={() => removeCustomFont(f.id)}>
+                  Retirer
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <TextZoneSection
+        title="Texte libre 1"
+        zone={config.text1}
+        onChange={setText1}
+        customFonts={config.customFonts}
+      />
+      <TextZoneSection
+        title="Texte libre 2"
+        zone={config.text2}
+        onChange={setText2}
+        customFonts={config.customFonts}
+      />
+      <TextZoneSection
+        title="Texte libre 3"
+        zone={config.text3}
+        onChange={setText3}
+        customFonts={config.customFonts}
+      />
 
       <Section title="Tag NFC intégré" defaultOpen={false}>
         <ToggleField label="Activer" checked={config.nfc.enabled} onChange={(enabled) => setNFC({ enabled })} />

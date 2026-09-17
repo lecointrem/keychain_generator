@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useKeychainStore } from './store';
 import { useKeychainGeometry } from './hooks/useKeychainGeometry';
+import { useCustomFonts } from './hooks/useCustomFonts';
 import { ControlsPanel } from './components/ControlsPanel';
 import { Viewer3D } from './components/Viewer3D';
 import { exportKeychainSTL } from './export/exportSTL';
@@ -11,6 +12,7 @@ import './App.css';
 
 function App() {
   const config = useKeychainStore((s) => s.config);
+  useCustomFonts(config.customFonts);
   const { geometry, error } = useKeychainGeometry(config);
   const [exporting, setExporting] = useState(false);
 

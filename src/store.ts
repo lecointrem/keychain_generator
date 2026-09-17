@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type {
   ContourConfig,
+  CustomFont,
   ExportConfig,
   HoleConfig,
   KeychainConfig,
@@ -102,6 +103,7 @@ export const defaultConfig: KeychainConfig = {
     offsetX: 0,
     offsetY: 0,
   },
+  customFonts: [],
   color: '#e6e6e6',
   export: {
     filename: 'porte-cle',
@@ -122,6 +124,8 @@ interface KeychainStore {
   setNFC: (patch: Partial<NFCConfig>) => void;
   setExport: (patch: Partial<ExportConfig>) => void;
   setColor: (color: string) => void;
+  addCustomFont: (font: CustomFont) => void;
+  removeCustomFont: (id: string) => void;
   reset: () => void;
   loadConfig: (loaded: unknown) => void;
 }
@@ -139,6 +143,10 @@ function mergeWithDefaults(loaded: unknown): KeychainConfig {
     const value = src[key];
     if (key === 'color') {
       if (typeof value === 'string') merged.color = value;
+      continue;
+    }
+    if (key === 'customFonts') {
+      if (Array.isArray(value)) merged.customFonts = value as CustomFont[];
       continue;
     }
     if (value && typeof value === 'object') {
@@ -174,6 +182,12 @@ export const useKeychainStore = create<KeychainStore>((set) => ({
   setExport: (patch) =>
     set((s) => ({ config: { ...s.config, export: { ...s.config.export, ...patch } } })),
   setColor: (color) => set((s) => ({ config: { ...s.config, color } })),
+  addCustomFont: (font) =>
+    set((s) => ({ config: { ...s.config, customFonts: [...s.config.customFonts, font] } })),
+  removeCustomFont: (id) =>
+    set((s) => ({
+      config: { ...s.config, customFonts: s.config.customFonts.filter((f) => f.id !== id) },
+    })),
   reset: () => set({ config: defaultConfig }),
   loadConfig: (loaded) => set({ config: mergeWithDefaults(loaded) }),
 }));

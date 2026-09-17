@@ -60,8 +60,18 @@ export interface TextZoneConfig {
   reliefHeight: number; // mm
   mode: ReliefMode;
   bold: boolean;
-  fontFamily: string; // key into FONT_OPTIONS (src/fonts.ts)
+  fontFamily: string; // key into FONT_OPTIONS, or a custom font's cssFamily (src/fonts.ts)
   resolution: number; // pixels per letter height, controls crispness
+}
+
+export interface CustomFont {
+  id: string;
+  /** Display name shown in the picker (defaults to the uploaded filename). */
+  name: string;
+  /** Unique generated CSS font-family used to register/reference this font. */
+  cssFamily: string;
+  /** The font file itself, as a data URL — stays in the browser, never uploaded anywhere. */
+  dataUrl: string;
 }
 
 export interface NFCConfig {
@@ -88,6 +98,7 @@ export interface KeychainConfig {
   text2: TextZoneConfig;
   text3: TextZoneConfig;
   nfc: NFCConfig;
+  customFonts: CustomFont[];
   color: string;
   export: ExportConfig;
 }

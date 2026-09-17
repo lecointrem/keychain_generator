@@ -23,6 +23,11 @@ export const FONT_OPTIONS: FontOption[] = [
   { value: 'permanent-marker', label: 'Permanent Marker (manuscrit)', cssFamily: 'Permanent Marker' },
 ];
 
+/**
+ * Resolves a stored fontFamily value to a CSS font-family string. Built-in fonts are
+ * looked up by key; anything else (a custom uploaded font) is treated as a literal
+ * CSS family name — see src/hooks/useCustomFonts.ts.
+ */
 export function cssFamilyFor(value: string): string {
-  return FONT_OPTIONS.find((f) => f.value === value)?.cssFamily ?? 'Roboto';
+  return FONT_OPTIONS.find((f) => f.value === value)?.cssFamily ?? value ?? 'Roboto';
 }
