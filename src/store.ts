@@ -23,8 +23,8 @@ export const defaultConfig: KeychainConfig = {
   hole: {
     enabled: true,
     diameter: 4,
-    offsetFromTop: 4,
     offsetX: 0,
+    offsetY: 11,
   },
   contour: {
     enabled: true,

@@ -13,8 +13,8 @@ export interface ShapeConfig {
 export interface HoleConfig {
   enabled: boolean;
   diameter: number; // mm
-  offsetFromTop: number; // mm, distance from top edge to hole center
   offsetX: number; // mm, horizontal offset from center
+  offsetY: number; // mm, vertical offset from center (Y+ = up)
 }
 
 export interface ContourConfig {

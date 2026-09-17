@@ -198,15 +198,9 @@ export function ControlsPanel({ onExport, exporting }: Props) {
               unit=" mm"
               onChange={(diameter) => setHole({ diameter })}
             />
-            <SliderField
-              label="Distance du bord haut"
-              value={config.hole.offsetFromTop}
-              min={2}
-              max={20}
-              step={0.1}
-              unit=" mm"
-              onChange={(offsetFromTop) => setHole({ offsetFromTop })}
-            />
+            <p className="field-hint">
+              Position : décalage par rapport au centre de la plaque (0 mm = centre, Y+ vers le haut).
+            </p>
             <SliderField
               label="Décalage horizontal"
               value={config.hole.offsetX}
@@ -215,6 +209,15 @@ export function ControlsPanel({ onExport, exporting }: Props) {
               step={0.5}
               unit=" mm"
               onChange={(offsetX) => setHole({ offsetX })}
+            />
+            <SliderField
+              label="Décalage vertical"
+              value={config.hole.offsetY}
+              min={-50}
+              max={50}
+              step={0.5}
+              unit=" mm"
+              onChange={(offsetY) => setHole({ offsetY })}
             />
           </>
         )}

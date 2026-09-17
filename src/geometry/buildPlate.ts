@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { KeychainConfig } from '../types';
-import { createInsetShape, createOuterShape, shapeBounds } from './shapeOutline';
+import { createInsetShape, createOuterShape } from './shapeOutline';
 
 /**
  * Builds the base plate (with keyring hole) plus an optional raised contour ring,
@@ -9,15 +9,12 @@ import { createInsetShape, createOuterShape, shapeBounds } from './shapeOutline'
  */
 export function buildPlateGeometry(config: KeychainConfig): THREE.BufferGeometry {
   const { shape, hole, contour } = config;
-  const bounds = shapeBounds(shape);
 
   const outer = createOuterShape(shape);
 
   if (hole.enabled && hole.diameter > 0) {
     const holePath = new THREE.Path();
-    const cx = hole.offsetX;
-    const cy = bounds.height / 2 - hole.offsetFromTop;
-    holePath.absarc(cx, cy, hole.diameter / 2, 0, Math.PI * 2, true);
+    holePath.absarc(hole.offsetX, hole.offsetY, hole.diameter / 2, 0, Math.PI * 2, true);
     outer.holes.push(holePath);
   }
 
