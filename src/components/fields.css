@@ -149,6 +149,15 @@
   padding: 4px 8px;
 }
 
+.field-error {
+  color: var(--danger);
+}
+
+.mail-merge-preview {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
 .font-preview {
   margin: -4px 0 12px;
   padding: 10px 12px;

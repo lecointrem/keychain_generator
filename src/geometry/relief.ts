@@ -72,6 +72,55 @@ export function rotateReliefGeometry(
 const EMBED = 0.2; // mm, extra overlap driven into the base plate for a strong bond
 const POKE = 0.2; // mm, extra depth an engraving cutter pokes above the surface
 
+interface Rect {
+  col: number;
+  row: number;
+  colSpan: number;
+  rowSpan: number;
+}
+
+/**
+ * Greedily decomposes the filled cells of a grid into as few axis-aligned rectangles
+ * as possible (merge horizontal runs, then extend them downward while the row below
+ * repeats the same run). This is what keeps QR/text/logo relief cheap to build and
+ * export: a solid block (a QR finder square, a letter's stem) becomes one box instead
+ * of dozens of unit boxes, which is what CSG and the 3MF/STL writers actually pay for.
+ */
+function computeRectangles(cols: number, rows: number, cells: boolean[]): Rect[] {
+  const consumed = new Array<boolean>(cols * rows).fill(false);
+  const rects: Rect[] = [];
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const idx = r * cols + c;
+      if (!cells[idx] || consumed[idx]) continue;
+
+      let colSpan = 1;
+      while (c + colSpan < cols && cells[r * cols + c + colSpan] && !consumed[r * cols + c + colSpan]) {
+        colSpan++;
+      }
+
+      let rowSpan = 1;
+      rowGrowth: while (r + rowSpan < rows) {
+        for (let cc = 0; cc < colSpan; cc++) {
+          const below = (r + rowSpan) * cols + c + cc;
+          if (!cells[below] || consumed[below]) break rowGrowth;
+        }
+        rowSpan++;
+      }
+
+      for (let rr = 0; rr < rowSpan; rr++) {
+        for (let cc = 0; cc < colSpan; cc++) {
+          consumed[(r + rr) * cols + c + cc] = true;
+        }
+      }
+      rects.push({ col: c, row: r, colSpan, rowSpan });
+    }
+  }
+
+  return rects;
+}
+
 /**
  * Builds a merged box-grid geometry for the given relief cells.
  * `mode` = 'raised' returns material to be unioned onto the plate.
@@ -94,22 +143,19 @@ export function buildReliefGeometry(
   const zCenter =
     mode === 'raised' ? zTop - embed / 2 + height / 2 : zTop - height / 2 + POKE / 2;
 
+  const rects = computeRectangles(cols, rows, cells);
+  if (rects.length === 0) return null;
+
   const boxes: THREE.BufferGeometry[] = [];
-  const unitBox = new THREE.BoxGeometry(moduleSize, moduleSize, boxDepth);
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (!cells[r * cols + c]) continue;
-      const x = originX + (c + 0.5) * moduleSize;
-      const y = originY - (r + 0.5) * moduleSize;
-      const g = unitBox.clone();
-      g.translate(x, y, zCenter);
-      boxes.push(g);
-    }
+  for (const rect of rects) {
+    const w = rect.colSpan * moduleSize;
+    const h = rect.rowSpan * moduleSize;
+    const x = originX + (rect.col + rect.colSpan / 2) * moduleSize;
+    const y = originY - (rect.row + rect.rowSpan / 2) * moduleSize;
+    const g = new THREE.BoxGeometry(w, h, boxDepth);
+    g.translate(x, y, zCenter);
+    boxes.push(g);
   }
-
-  unitBox.dispose();
-  if (boxes.length === 0) return null;
 
   const merged = mergeGeometries(boxes, false);
   boxes.forEach((b) => b.dispose());

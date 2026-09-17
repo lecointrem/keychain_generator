@@ -6,20 +6,8 @@ import { ControlsPanel } from './components/ControlsPanel';
 import { Viewer3D } from './components/Viewer3D';
 import { exportKeychainSTL } from './export/exportSTL';
 import { exportKeychain3MF } from './export/export3MF';
-import { buildQRGrid } from './geometry/buildQR';
-import { buildLogoGrid } from './geometry/buildLogo';
-import { buildTextGrid } from './geometry/buildText';
-import type { KeychainConfig } from './types';
+import { collectGrids } from './geometry/collectGrids';
 import './App.css';
-
-async function collectGrids(config: KeychainConfig) {
-  const qrGrid = config.qr.enabled ? buildQRGrid(config.qr) : null;
-  const logoGrid = config.logo.enabled ? await buildLogoGrid(config.logo) : null;
-  const text1Grid = config.text1.enabled ? await buildTextGrid(config.text1) : null;
-  const text2Grid = config.text2.enabled ? await buildTextGrid(config.text2) : null;
-  const text3Grid = config.text3.enabled ? await buildTextGrid(config.text3) : null;
-  return { qrGrid, logoGrid, text1Grid, text2Grid, text3Grid };
-}
 
 function App() {
   const config = useKeychainStore((s) => s.config);

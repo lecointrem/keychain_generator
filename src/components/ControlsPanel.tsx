@@ -3,6 +3,7 @@ import { useKeychainStore } from '../store';
 import type { ShapeType, ReliefMode } from '../types';
 import { ColorField, SelectField, Section, SliderField, TextField, ToggleField } from './fields';
 import { TextZoneSection } from './TextZoneSection';
+import { MailMergeSection } from './MailMergeSection';
 import { downloadBlob } from '../utils/download';
 
 const SHAPE_OPTIONS: { value: ShapeType; label: string }[] = [
@@ -576,6 +577,8 @@ export function ControlsPanel({ onExport, onExport3MF, exporting }: Props) {
           {exporting ? 'Génération du STL…' : 'Exporter en STL'}
         </button>
       </Section>
+
+      <MailMergeSection />
     </div>
   );
 }
