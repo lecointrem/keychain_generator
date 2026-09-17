@@ -568,6 +568,72 @@ export function ControlsPanel({ onExport, onExport3MF, exporting }: Props) {
           Le 3MF porte la couleur de chaque élément (base, contour, QR, logo, textes en relief) — les slicers
           compatibles (BambuStudio, OrcaSlicer...) les assignent automatiquement à un filament/AMS.
         </p>
+
+        <Section title="Profil d'impression (3MF)" defaultOpen={false}>
+          <p className="field-hint">
+            Ces réglages sont embarqués dans le fichier 3MF. S'ils ne correspondent à aucun profil connu de ton
+            slicer, laisse-les vides — sinon le slicer peut essayer de faire correspondre un profil inexistant et
+            retomber sur des réglages par défaut (temp./premier layer) qui ne sont pas les tiens. En cas de doute,
+            garde ton propre profil au moment d'ouvrir le fichier plutôt que celui du projet.
+          </p>
+          <TextField
+            label="Nom imprimante"
+            value={config.export.printProfile.printerName}
+            onChange={(printerName) =>
+              setExport({ printProfile: { ...config.export.printProfile, printerName } })
+            }
+          />
+          <TextField
+            label="ID profil imprimante (slicer)"
+            value={config.export.printProfile.printerSettingsId}
+            onChange={(printerSettingsId) =>
+              setExport({ printProfile: { ...config.export.printProfile, printerSettingsId } })
+            }
+          />
+          <TextField
+            label="ID profil d'impression (process)"
+            value={config.export.printProfile.printSettingsId}
+            onChange={(printSettingsId) =>
+              setExport({ printProfile: { ...config.export.printProfile, printSettingsId } })
+            }
+          />
+          <TextField
+            label="Profil filament"
+            value={config.export.printProfile.filament}
+            onChange={(filament) => setExport({ printProfile: { ...config.export.printProfile, filament } })}
+          />
+          <SliderField
+            label="Largeur du plateau"
+            value={config.export.printProfile.bedWidth}
+            min={100}
+            max={500}
+            step={5}
+            unit=" mm"
+            onChange={(bedWidth) => setExport({ printProfile: { ...config.export.printProfile, bedWidth } })}
+          />
+          <SliderField
+            label="Profondeur du plateau"
+            value={config.export.printProfile.bedDepth}
+            min={100}
+            max={500}
+            step={5}
+            unit=" mm"
+            onChange={(bedDepth) => setExport({ printProfile: { ...config.export.printProfile, bedDepth } })}
+          />
+          <SliderField
+            label="Hauteur d'impression max"
+            value={config.export.printProfile.bedHeight}
+            min={100}
+            max={500}
+            step={5}
+            unit=" mm"
+            onChange={(bedHeight) => setExport({ printProfile: { ...config.export.printProfile, bedHeight } })}
+          />
+          <p className="field-hint">
+            Le diamètre de buse embarqué (0.4mm) est fixé par la librairie d'export et n'est pas modifiable ici.
+          </p>
+        </Section>
+
         <ToggleField
           label="Export STL multi-pièces (multicouleur)"
           checked={config.export.splitParts}

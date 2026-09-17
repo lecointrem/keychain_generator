@@ -9,6 +9,7 @@ import { buildQRGrid } from '../geometry/buildQR';
 import { buildTextGrid } from '../geometry/buildText';
 import { collectGrids } from '../geometry/collectGrids';
 import { shapeBounds } from '../geometry/shapeOutline';
+import { buildPrintJobConfig } from './printProfile';
 import { downloadBlob } from '../utils/download';
 
 export type MailMergeFormat = 'stl' | '3mf';
@@ -130,7 +131,7 @@ export async function exportMailMergeIndividual(
         mesh.name = piece.label;
         group.add(mesh);
       }
-      const blob = await exportTo3MF(group);
+      const blob = await exportTo3MF(group, buildPrintJobConfig(template.export.printProfile));
       zip.file(`${name}.3mf`, blob);
       pieces.forEach((p) => p.geometry.dispose());
     }
@@ -237,7 +238,7 @@ export async function exportMailMergePlated(
         group.add(mesh);
         bucket.parts.forEach((p) => p.dispose());
       }
-      const blob = await exportTo3MF(group);
+      const blob = await exportTo3MF(group, buildPrintJobConfig(template.export.printProfile, bedWidth, bedDepth));
       zip.file(`plateau_${plateIdx + 1}.3mf`, blob);
     }
   }

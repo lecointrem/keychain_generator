@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { exportTo3MF } from 'three-3mf-exporter';
 import type { KeychainConfig } from '../types';
 import { buildKeychainPieces, type KeychainInputs } from '../geometry/buildKeychain';
+import { buildPrintJobConfig } from './printProfile';
 import { downloadBlob } from '../utils/download';
 
 /**
@@ -23,6 +24,6 @@ export async function exportKeychain3MF(config: KeychainConfig, inputs: Keychain
     group.add(mesh);
   }
 
-  const blob = await exportTo3MF(group);
+  const blob = await exportTo3MF(group, buildPrintJobConfig(config.export.printProfile));
   downloadBlob(blob, `${filename}.3mf`);
 }

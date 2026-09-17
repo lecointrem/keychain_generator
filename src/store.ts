@@ -114,6 +114,15 @@ export const defaultConfig: KeychainConfig = {
   export: {
     filename: 'porte-cle',
     splitParts: false,
+    printProfile: {
+      printerName: 'Qidi Q2 Pro',
+      printerSettingsId: 'Q2',
+      printSettingsId: '0.20mm Standard @Q2',
+      filament: '',
+      bedWidth: 270,
+      bedDepth: 270,
+      bedHeight: 270,
+    },
   },
 };
 

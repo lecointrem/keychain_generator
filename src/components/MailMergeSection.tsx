@@ -30,8 +30,8 @@ export function MailMergeSection() {
   const [csvRows, setCsvRows] = useState<string[][]>([]);
   const [mapping, setMapping] = useState<MailMergeMapping>(EMPTY_MAPPING);
   const [format, setFormat] = useState<MailMergeFormat>('3mf');
-  const [bedWidth, setBedWidth] = useState(220);
-  const [bedDepth, setBedDepth] = useState(220);
+  const [bedWidth, setBedWidth] = useState(config.export.printProfile.bedWidth);
+  const [bedDepth, setBedDepth] = useState(config.export.printProfile.bedDepth);
   const [spacing, setSpacing] = useState(4);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);

@@ -87,9 +87,23 @@ export interface NFCConfig {
   offsetY: number; // mm from center
 }
 
+export interface PrintProfileConfig {
+  printerName: string; // shown as the 3MF's printer_model
+  /** Must match your slicer's printer profile name exactly, or leave blank to not force one. */
+  printerSettingsId: string;
+  /** Must match your slicer's process/quality profile name exactly, or leave blank to not force one. */
+  printSettingsId: string;
+  /** Must match a filament profile name known to your slicer, or leave blank. */
+  filament: string;
+  bedWidth: number; // mm
+  bedDepth: number; // mm
+  bedHeight: number; // mm, max print height
+}
+
 export interface ExportConfig {
   filename: string;
   splitParts: boolean; // export base and relief separately for multi-color printing
+  printProfile: PrintProfileConfig;
 }
 
 export interface KeychainConfig {
