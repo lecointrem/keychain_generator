@@ -105,3 +105,14 @@
   max-height: 100%;
   object-fit: contain;
 }
+
+.font-preview {
+  margin: -4px 0 12px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 22px;
+  color: var(--text);
+  overflow-wrap: break-word;
+}

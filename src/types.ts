@@ -48,6 +48,20 @@ export interface LogoConfig {
   invert: boolean;
 }
 
+export interface TextZoneConfig {
+  enabled: boolean;
+  text: string;
+  height: number; // mm, letter height
+  offsetX: number; // mm from center
+  offsetY: number; // mm from center
+  rotation: number; // degrees, clockwise
+  reliefHeight: number; // mm
+  mode: ReliefMode;
+  bold: boolean;
+  fontFamily: string; // key into FONT_OPTIONS (src/fonts.ts)
+  resolution: number; // pixels per letter height, controls crispness
+}
+
 export interface ExportConfig {
   filename: string;
   splitParts: boolean; // export base and relief separately for multi-color printing
@@ -59,6 +73,8 @@ export interface KeychainConfig {
   contour: ContourConfig;
   qr: QRConfig;
   logo: LogoConfig;
+  text1: TextZoneConfig;
+  text2: TextZoneConfig;
   color: string;
   export: ExportConfig;
 }

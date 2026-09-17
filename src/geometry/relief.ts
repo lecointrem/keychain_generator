@@ -15,6 +15,23 @@ export interface ReliefLayout {
   originY: number; // local Y of the top-left corner of the grid (col 0, row 0), grid extends downward (-Y)
 }
 
+/** Centers a cols x rows grid of the given module size around (offsetX, offsetY). */
+export function layoutFromModuleSize(
+  cols: number,
+  rows: number,
+  moduleSize: number,
+  offsetX: number,
+  offsetY: number,
+): ReliefLayout {
+  const gridW = cols * moduleSize;
+  const gridH = rows * moduleSize;
+  return {
+    moduleSize,
+    originX: offsetX - gridW / 2,
+    originY: offsetY + gridH / 2,
+  };
+}
+
 /** Computes a centered layout for a cols x rows grid occupying `sizeMm` on its longest side. */
 export function computeReliefLayout(
   cols: number,
@@ -23,14 +40,33 @@ export function computeReliefLayout(
   offsetX: number,
   offsetY: number,
 ): ReliefLayout {
-  const moduleSize = sizeMm / Math.max(cols, rows);
-  const gridW = cols * moduleSize;
-  const gridH = rows * moduleSize;
-  return {
-    moduleSize,
-    originX: offsetX - gridW / 2,
-    originY: offsetY + gridH / 2,
-  };
+  return layoutFromModuleSize(cols, rows, sizeMm / Math.max(cols, rows), offsetX, offsetY);
+}
+
+/** Computes a centered layout for a cols x rows grid whose physical height is `heightMm`. */
+export function computeReliefLayoutByHeight(
+  cols: number,
+  rows: number,
+  heightMm: number,
+  offsetX: number,
+  offsetY: number,
+): ReliefLayout {
+  return layoutFromModuleSize(cols, rows, heightMm / rows, offsetX, offsetY);
+}
+
+/** Rotates a relief geometry in-place (around the Z/thickness axis) about its anchor point. */
+export function rotateReliefGeometry(
+  geometry: THREE.BufferGeometry,
+  degrees: number,
+  aboutX: number,
+  aboutY: number,
+): THREE.BufferGeometry {
+  if (!degrees) return geometry;
+  const rad = (degrees * Math.PI) / 180;
+  geometry.translate(-aboutX, -aboutY, 0);
+  geometry.rotateZ(rad);
+  geometry.translate(aboutX, aboutY, 0);
+  return geometry;
 }
 
 const EMBED = 0.2; // mm, extra overlap driven into the base plate for a strong bond

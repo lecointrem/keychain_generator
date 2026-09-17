@@ -2,6 +2,8 @@ import type { ChangeEvent } from 'react';
 import { useKeychainStore } from '../store';
 import type { ShapeType, ReliefMode } from '../types';
 import { SelectField, Section, SliderField, TextField, ToggleField } from './fields';
+import { TextZoneSection } from './TextZoneSection';
+import { downloadBlob } from '../utils/download';
 
 const SHAPE_OPTIONS: { value: ShapeType; label: string }[] = [
   { value: 'rounded-rect', label: 'Rectangle arrondi' },
@@ -34,9 +36,12 @@ export function ControlsPanel({ onExport, exporting }: Props) {
   const setContour = useKeychainStore((s) => s.setContour);
   const setQR = useKeychainStore((s) => s.setQR);
   const setLogo = useKeychainStore((s) => s.setLogo);
+  const setText1 = useKeychainStore((s) => s.setText1);
+  const setText2 = useKeychainStore((s) => s.setText2);
   const setExport = useKeychainStore((s) => s.setExport);
   const setColor = useKeychainStore((s) => s.setColor);
   const reset = useKeychainStore((s) => s.reset);
+  const loadConfig = useKeychainStore((s) => s.loadConfig);
 
   function handleLogoUpload(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -48,6 +53,27 @@ export function ControlsPanel({ onExport, exporting }: Props) {
     reader.readAsDataURL(file);
   }
 
+  function handleSaveProfile() {
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    downloadBlob(blob, 'profil-porte-cle.json');
+  }
+
+  function handleLoadProfile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result as string);
+        loadConfig(parsed);
+      } catch {
+        alert('Fichier de profil invalide.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
   return (
     <div className="controls-panel">
       <div className="controls-header">
@@ -56,6 +82,19 @@ export function ControlsPanel({ onExport, exporting }: Props) {
           Réinitialiser
         </button>
       </div>
+
+      <Section title="Profil" defaultOpen={false}>
+        <p className="field-hint">Sauvegarde tous les réglages actuels dans un fichier, à recharger plus tard.</p>
+        <button className="btn-ghost" type="button" onClick={handleSaveProfile} style={{ width: '100%', marginBottom: 8 }}>
+          Enregistrer le profil (.json)
+        </button>
+        <label className="field">
+          <div className="field-row">
+            <span>Charger un profil</span>
+          </div>
+          <input type="file" accept="application/json,.json" onChange={handleLoadProfile} />
+        </label>
+      </Section>
 
       <Section title="Forme & dimensions">
         <SelectField
@@ -330,6 +369,9 @@ export function ControlsPanel({ onExport, exporting }: Props) {
           </>
         )}
       </Section>
+
+      <TextZoneSection title="Texte libre 1" zone={config.text1} onChange={setText1} />
+      <TextZoneSection title="Texte libre 2" zone={config.text2} onChange={setText2} />
 
       <Section title="Apparence" defaultOpen={false}>
         <label className="field">

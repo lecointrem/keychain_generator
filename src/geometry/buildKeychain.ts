@@ -1,14 +1,22 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg';
-import type { KeychainConfig, ReliefMode } from '../types';
+import { ADDITION, Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg';
+import type { KeychainConfig, ReliefMode, TextZoneConfig } from '../types';
 import { buildPlateGeometry, plateTopZ } from './buildPlate';
 import { shapeBounds } from './shapeOutline';
-import { buildReliefGeometry, computeReliefLayout, type ReliefGrid } from './relief';
+import {
+  buildReliefGeometry,
+  computeReliefLayout,
+  computeReliefLayoutByHeight,
+  rotateReliefGeometry,
+  type ReliefGrid,
+} from './relief';
 
 export interface KeychainInputs {
   qrGrid: ReliefGrid | null;
   logoGrid: ReliefGrid | null;
+  text1Grid: ReliefGrid | null;
+  text2Grid: ReliefGrid | null;
 }
 
 function reliefSizeMm(bounds: { width: number; height: number }, sizeRatio: number): number {
@@ -33,11 +41,41 @@ function buildFeatureGeometries(
   return buildReliefGeometry(grid, layout, height, zTop, mode, thickness);
 }
 
+function buildTextZoneGeometry(
+  grid: ReliefGrid | null,
+  zone: TextZoneConfig,
+  zTop: number,
+  thickness: number,
+): THREE.BufferGeometry | null {
+  if (!zone.enabled || !grid) return null;
+  const layout = computeReliefLayoutByHeight(grid.cols, grid.rows, zone.height, zone.offsetX, zone.offsetY);
+  const geom = buildReliefGeometry(grid, layout, zone.reliefHeight, zTop, zone.mode, thickness);
+  if (!geom) return null;
+  return rotateReliefGeometry(geom, zone.rotation, zone.offsetX, zone.offsetY);
+}
+
 export interface KeychainParts {
   /** Plate + contour, with any engraved cavities already cut in. */
   base: THREE.BufferGeometry;
   /** Merged raised (additive) QR/logo material, if any — a separate printable piece. */
   relief: THREE.BufferGeometry | null;
+  /** Whether `base` had material cut out of it (an engraved cutter was applied). */
+  hasCavities: boolean;
+}
+
+/** Boolean-combines two geometries via three-bvh-csg, returning a non-indexed result. */
+function csgCombine(
+  a: THREE.BufferGeometry,
+  b: THREE.BufferGeometry,
+  operation: typeof ADDITION | typeof SUBTRACTION,
+): THREE.BufferGeometry {
+  const evaluator = new Evaluator();
+  const brushA = new Brush(a, new THREE.MeshStandardMaterial());
+  const brushB = new Brush(b, new THREE.MeshStandardMaterial());
+  brushA.updateMatrixWorld(true);
+  brushB.updateMatrixWorld(true);
+  const result = evaluator.evaluate(brushA, brushB, operation);
+  return result.geometry.index ? result.geometry.toNonIndexed() : result.geometry;
 }
 
 /** Builds the base plate (with engravings applied) and the raised relief as separate pieces. */
@@ -73,28 +111,28 @@ export function buildKeychainParts(config: KeychainConfig, inputs: KeychainInput
     bounds,
   );
 
+  const text1Geom = buildTextZoneGeometry(inputs.text1Grid, config.text1, zTop, thickness);
+  const text2Geom = buildTextZoneGeometry(inputs.text2Grid, config.text2, zTop, thickness);
+
   const cutters: THREE.BufferGeometry[] = [];
   const additions: THREE.BufferGeometry[] = [];
 
   if (qrGeom) (config.qr.mode === 'engraved' ? cutters : additions).push(qrGeom);
   if (logoGeom) (config.logo.mode === 'engraved' ? cutters : additions).push(logoGeom);
+  if (text1Geom) (config.text1.mode === 'engraved' ? cutters : additions).push(text1Geom);
+  if (text2Geom) (config.text2.mode === 'engraved' ? cutters : additions).push(text2Geom);
 
   let base = plateGeom;
+  const hasCavities = cutters.length > 0;
 
-  if (cutters.length > 0) {
+  if (hasCavities) {
     const cutterGeom = cutters.length === 1 ? cutters[0] : mergeGeometries(cutters, false);
-    const evaluator = new Evaluator();
-    const plateBrush = new Brush(base, new THREE.MeshStandardMaterial());
-    const cutterBrush = new Brush(cutterGeom, new THREE.MeshStandardMaterial());
-    plateBrush.updateMatrixWorld(true);
-    cutterBrush.updateMatrixWorld(true);
-    const resultBrush = evaluator.evaluate(plateBrush, cutterBrush, SUBTRACTION);
-    base = resultBrush.geometry.index ? resultBrush.geometry.toNonIndexed() : resultBrush.geometry;
+    base = csgCombine(base, cutterGeom, SUBTRACTION);
   }
 
   const relief = additions.length === 0 ? null : additions.length === 1 ? additions[0] : mergeGeometries(additions, false);
 
-  return { base, relief };
+  return { base, relief, hasCavities };
 }
 
 /** Assembles the full printable keychain geometry: plate + hole + contour + QR + logo. */
@@ -102,6 +140,11 @@ export function buildKeychainGeometry(
   config: KeychainConfig,
   inputs: KeychainInputs,
 ): THREE.BufferGeometry {
-  const { base, relief } = buildKeychainParts(config, inputs);
-  return relief ? mergeGeometries([base, relief], false) : base;
+  const { base, relief, hasCavities } = buildKeychainParts(config, inputs);
+  if (!relief) return base;
+  // Only pay for a real boolean union when the base actually has an engraved cavity
+  // that a raised piece could be overlapping (otherwise a plain merge is far cheaper
+  // and safer — a CSG union of many small touching boxes, like QR/text pixels, is a
+  // pathological case for the boolean evaluator).
+  return hasCavities ? csgCombine(base, relief, ADDITION) : mergeGeometries([base, relief], false);
 }

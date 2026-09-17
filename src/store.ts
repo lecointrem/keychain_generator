@@ -7,6 +7,7 @@ import type {
   LogoConfig,
   QRConfig,
   ShapeConfig,
+  TextZoneConfig,
 } from './types';
 
 export const defaultConfig: KeychainConfig = {
@@ -51,6 +52,32 @@ export const defaultConfig: KeychainConfig = {
     threshold: 128,
     invert: false,
   },
+  text1: {
+    enabled: false,
+    text: 'VOTRE TEXTE',
+    height: 3,
+    offsetX: 0,
+    offsetY: -12,
+    rotation: 0,
+    reliefHeight: 0.6,
+    mode: 'raised',
+    bold: false,
+    fontFamily: 'roboto',
+    resolution: 32,
+  },
+  text2: {
+    enabled: false,
+    text: 'TEXTE 2',
+    height: 3,
+    offsetX: 20,
+    offsetY: 0,
+    rotation: 90,
+    reliefHeight: 0.6,
+    mode: 'raised',
+    bold: false,
+    fontFamily: 'roboto',
+    resolution: 32,
+  },
   color: '#e6e6e6',
   export: {
     filename: 'porte-cle',
@@ -65,9 +92,37 @@ interface KeychainStore {
   setContour: (patch: Partial<ContourConfig>) => void;
   setQR: (patch: Partial<QRConfig>) => void;
   setLogo: (patch: Partial<LogoConfig>) => void;
+  setText1: (patch: Partial<TextZoneConfig>) => void;
+  setText2: (patch: Partial<TextZoneConfig>) => void;
   setExport: (patch: Partial<ExportConfig>) => void;
   setColor: (color: string) => void;
   reset: () => void;
+  loadConfig: (loaded: unknown) => void;
+}
+
+/**
+ * Merges a loaded profile over the defaults, key by key, so an older or partial
+ * profile (missing fields added in a later version of the app) still loads safely.
+ */
+function mergeWithDefaults(loaded: unknown): KeychainConfig {
+  const src = (loaded && typeof loaded === 'object' ? loaded : {}) as Partial<
+    Record<keyof KeychainConfig, unknown>
+  >;
+  const merged = { ...defaultConfig } as KeychainConfig;
+  for (const key of Object.keys(defaultConfig) as (keyof KeychainConfig)[]) {
+    const value = src[key];
+    if (key === 'color') {
+      if (typeof value === 'string') merged.color = value;
+      continue;
+    }
+    if (value && typeof value === 'object') {
+      (merged as unknown as Record<string, unknown>)[key] = {
+        ...(defaultConfig[key] as object),
+        ...(value as object),
+      };
+    }
+  }
+  return merged;
 }
 
 export const useKeychainStore = create<KeychainStore>((set) => ({
@@ -82,8 +137,13 @@ export const useKeychainStore = create<KeychainStore>((set) => ({
     set((s) => ({ config: { ...s.config, qr: { ...s.config.qr, ...patch } } })),
   setLogo: (patch) =>
     set((s) => ({ config: { ...s.config, logo: { ...s.config.logo, ...patch } } })),
+  setText1: (patch) =>
+    set((s) => ({ config: { ...s.config, text1: { ...s.config.text1, ...patch } } })),
+  setText2: (patch) =>
+    set((s) => ({ config: { ...s.config, text2: { ...s.config.text2, ...patch } } })),
   setExport: (patch) =>
     set((s) => ({ config: { ...s.config, export: { ...s.config.export, ...patch } } })),
   setColor: (color) => set((s) => ({ config: { ...s.config, color } })),
   reset: () => set({ config: defaultConfig }),
+  loadConfig: (loaded) => set({ config: mergeWithDefaults(loaded) }),
 }));

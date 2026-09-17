@@ -3,20 +3,10 @@ import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js';
 import JSZip from 'jszip';
 import type { KeychainConfig } from '../types';
 import { buildKeychainGeometry, buildKeychainParts, type KeychainInputs } from '../geometry/buildKeychain';
+import { downloadBlob } from '../utils/download';
 
 function geometryToMesh(geom: THREE.BufferGeometry): THREE.Mesh {
   return new THREE.Mesh(geom, new THREE.MeshStandardMaterial());
-}
-
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }
 
 /** Generates the STL (or a ZIP of two STLs for multi-color printing) and triggers a download. */

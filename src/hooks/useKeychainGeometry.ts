@@ -4,6 +4,7 @@ import type { KeychainConfig } from '../types';
 import { buildKeychainGeometry } from '../geometry/buildKeychain';
 import { buildQRGrid } from '../geometry/buildQR';
 import { buildLogoGrid } from '../geometry/buildLogo';
+import { buildTextGrid } from '../geometry/buildText';
 import type { ReliefGrid } from '../geometry/relief';
 import { useDebouncedValue } from './useDebouncedValue';
 
@@ -11,6 +12,8 @@ export function useKeychainGeometry(config: KeychainConfig) {
   const debounced = useDebouncedValue(config, 120);
   const [qrGrid, setQrGrid] = useState<ReliefGrid | null>(null);
   const [logoGrid, setLogoGrid] = useState<ReliefGrid | null>(null);
+  const [text1Grid, setText1Grid] = useState<ReliefGrid | null>(null);
+  const [text2Grid, setText2Grid] = useState<ReliefGrid | null>(null);
   const [geometry, setGeometry] = useState<THREE.BufferGeometry | null>(null);
   const [error, setError] = useState<string | null>(null);
   const geometryRef = useRef<THREE.BufferGeometry | null>(null);
@@ -59,8 +62,58 @@ export function useKeychainGeometry(config: KeychainConfig) {
   ]);
 
   useEffect(() => {
+    let cancelled = false;
+    if (!debounced.text1.enabled) {
+      setText1Grid(null);
+      return;
+    }
+    buildTextGrid(debounced.text1)
+      .then((g) => {
+        if (!cancelled) setText1Grid(g);
+      })
+      .catch(() => {
+        if (!cancelled) setText1Grid(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    debounced.text1.enabled,
+    debounced.text1.text,
+    debounced.text1.bold,
+    debounced.text1.fontFamily,
+    debounced.text1.resolution,
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!debounced.text2.enabled) {
+      setText2Grid(null);
+      return;
+    }
+    buildTextGrid(debounced.text2)
+      .then((g) => {
+        if (!cancelled) setText2Grid(g);
+      })
+      .catch(() => {
+        if (!cancelled) setText2Grid(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    debounced.text2.enabled,
+    debounced.text2.text,
+    debounced.text2.bold,
+    debounced.text2.fontFamily,
+    debounced.text2.resolution,
+  ]);
+
+  useEffect(() => {
     try {
-      const geo = buildKeychainGeometry(debounced, { qrGrid, logoGrid });
+      const geo = buildKeychainGeometry(debounced, { qrGrid, logoGrid, text1Grid, text2Grid });
       if (geometryRef.current) geometryRef.current.dispose();
       geometryRef.current = geo;
       setGeometry(geo);
@@ -68,7 +121,7 @@ export function useKeychainGeometry(config: KeychainConfig) {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de génération de la géométrie');
     }
-  }, [debounced, qrGrid, logoGrid]);
+  }, [debounced, qrGrid, logoGrid, text1Grid, text2Grid]);
 
   useEffect(
     () => () => {

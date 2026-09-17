@@ -6,6 +6,7 @@ import { Viewer3D } from './components/Viewer3D';
 import { exportKeychainSTL } from './export/exportSTL';
 import { buildQRGrid } from './geometry/buildQR';
 import { buildLogoGrid } from './geometry/buildLogo';
+import { buildTextGrid } from './geometry/buildText';
 import './App.css';
 
 function App() {
@@ -18,7 +19,9 @@ function App() {
     try {
       const qrGrid = config.qr.enabled ? buildQRGrid(config.qr) : null;
       const logoGrid = config.logo.enabled ? await buildLogoGrid(config.logo) : null;
-      await exportKeychainSTL(config, { qrGrid, logoGrid });
+      const text1Grid = config.text1.enabled ? await buildTextGrid(config.text1) : null;
+      const text2Grid = config.text2.enabled ? await buildTextGrid(config.text2) : null;
+      await exportKeychainSTL(config, { qrGrid, logoGrid, text1Grid, text2Grid });
     } catch (e) {
       alert('Erreur lors de l\'export STL : ' + (e instanceof Error ? e.message : String(e)));
     } finally {
