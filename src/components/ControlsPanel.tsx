@@ -319,7 +319,14 @@ export function ControlsPanel({ onExport, exporting }: Props) {
               unit=""
               onChange={(threshold) => setLogo({ threshold })}
             />
-            <ToggleField label="Inverser" checked={config.logo.invert} onChange={(invert) => setLogo({ invert })} />
+            <ToggleField
+              label="Négatif (inverser le motif)"
+              checked={config.logo.invert}
+              onChange={(invert) => setLogo({ invert })}
+            />
+            <p className="field-hint">
+              Inverse les zones qui deviennent du relief : ce qui était plein devient vide, et inversement.
+            </p>
           </>
         )}
       </Section>
