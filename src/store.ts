@@ -5,6 +5,7 @@ import type {
   HoleConfig,
   KeychainConfig,
   LogoConfig,
+  NFCConfig,
   QRConfig,
   ShapeConfig,
   TextZoneConfig,
@@ -78,6 +79,14 @@ export const defaultConfig: KeychainConfig = {
     fontFamily: 'roboto',
     resolution: 32,
   },
+  nfc: {
+    enabled: false,
+    diameter: 25,
+    tagThickness: 0.2,
+    clearance: 0.2,
+    offsetX: 0,
+    offsetY: 0,
+  },
   color: '#e6e6e6',
   export: {
     filename: 'porte-cle',
@@ -94,6 +103,7 @@ interface KeychainStore {
   setLogo: (patch: Partial<LogoConfig>) => void;
   setText1: (patch: Partial<TextZoneConfig>) => void;
   setText2: (patch: Partial<TextZoneConfig>) => void;
+  setNFC: (patch: Partial<NFCConfig>) => void;
   setExport: (patch: Partial<ExportConfig>) => void;
   setColor: (color: string) => void;
   reset: () => void;
@@ -141,6 +151,8 @@ export const useKeychainStore = create<KeychainStore>((set) => ({
     set((s) => ({ config: { ...s.config, text1: { ...s.config.text1, ...patch } } })),
   setText2: (patch) =>
     set((s) => ({ config: { ...s.config, text2: { ...s.config.text2, ...patch } } })),
+  setNFC: (patch) =>
+    set((s) => ({ config: { ...s.config, nfc: { ...s.config.nfc, ...patch } } })),
   setExport: (patch) =>
     set((s) => ({ config: { ...s.config, export: { ...s.config.export, ...patch } } })),
   setColor: (color) => set((s) => ({ config: { ...s.config, color } })),

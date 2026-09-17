@@ -23,7 +23,14 @@ export function Viewer3D({ geometry, color, error }: Props) {
           position={[40, 60, 30]}
           intensity={1.2}
           castShadow
-          shadow-mapSize={[1024, 1024]}
+          shadow-mapSize={[2048, 2048]}
+          shadow-bias={-0.0006}
+          shadow-camera-left={-90}
+          shadow-camera-right={90}
+          shadow-camera-top={90}
+          shadow-camera-bottom={-90}
+          shadow-camera-near={1}
+          shadow-camera-far={300}
         />
         <directionalLight position={[-30, 20, -40]} intensity={0.35} />
         <hemisphereLight args={['#ffffff', '#40424e', 0.5]} />

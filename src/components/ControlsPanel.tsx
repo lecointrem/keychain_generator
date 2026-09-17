@@ -38,6 +38,7 @@ export function ControlsPanel({ onExport, exporting }: Props) {
   const setLogo = useKeychainStore((s) => s.setLogo);
   const setText1 = useKeychainStore((s) => s.setText1);
   const setText2 = useKeychainStore((s) => s.setText2);
+  const setNFC = useKeychainStore((s) => s.setNFC);
   const setExport = useKeychainStore((s) => s.setExport);
   const setColor = useKeychainStore((s) => s.setColor);
   const reset = useKeychainStore((s) => s.reset);
@@ -97,6 +98,24 @@ export function ControlsPanel({ onExport, exporting }: Props) {
       </Section>
 
       <Section title="Forme & dimensions">
+        <div className="field-row" style={{ gap: 8, marginBottom: 10 }}>
+          <button
+            className="btn-ghost"
+            type="button"
+            style={{ flex: 1 }}
+            onClick={() => setShape({ type: 'rounded-rect', width: 50, height: 30, cornerRadius: 4 })}
+          >
+            Porte-clé 50×30
+          </button>
+          <button
+            className="btn-ghost"
+            type="button"
+            style={{ flex: 1 }}
+            onClick={() => setShape({ type: 'rounded-rect', width: 85, height: 54, cornerRadius: 3 })}
+          >
+            Carte CR80 85×54
+          </button>
+        </div>
         <SelectField
           label="Forme"
           value={config.shape.type}
@@ -372,6 +391,68 @@ export function ControlsPanel({ onExport, exporting }: Props) {
 
       <TextZoneSection title="Texte libre 1" zone={config.text1} onChange={setText1} />
       <TextZoneSection title="Texte libre 2" zone={config.text2} onChange={setText2} />
+
+      <Section title="Tag NFC intégré" defaultOpen={false}>
+        <ToggleField label="Activer" checked={config.nfc.enabled} onChange={(enabled) => setNFC({ enabled })} />
+        {config.nfc.enabled && (
+          <>
+            <p className="field-hint">
+              Poche cylindrique entièrement fermée, à mi-épaisseur de la plaque. Nécessite une pause d'impression à
+              cette hauteur pour insérer le tag, puis reprendre. Assure-toi que l'épaisseur de la plaque est
+              suffisante (profondeur de poche + au moins 0.4 mm de parois).
+            </p>
+            <SliderField
+              label="Diamètre du tag"
+              value={config.nfc.diameter}
+              min={10}
+              max={40}
+              step={0.5}
+              unit=" mm"
+              onChange={(diameter) => setNFC({ diameter })}
+            />
+            <SliderField
+              label="Épaisseur du tag"
+              value={config.nfc.tagThickness}
+              min={0.05}
+              max={1}
+              step={0.05}
+              unit=" mm"
+              onChange={(tagThickness) => setNFC({ tagThickness })}
+            />
+            <SliderField
+              label="Jeu (tolérance)"
+              value={config.nfc.clearance}
+              min={0}
+              max={1}
+              step={0.05}
+              unit=" mm"
+              onChange={(clearance) => setNFC({ clearance })}
+            />
+            <p className="field-hint">
+              Profondeur totale de la poche : {(config.nfc.tagThickness + config.nfc.clearance).toFixed(2)} mm.
+              Position : décalage par rapport au centre de la plaque.
+            </p>
+            <SliderField
+              label="Décalage X"
+              value={config.nfc.offsetX}
+              min={-40}
+              max={40}
+              step={0.5}
+              unit=" mm"
+              onChange={(offsetX) => setNFC({ offsetX })}
+            />
+            <SliderField
+              label="Décalage Y"
+              value={config.nfc.offsetY}
+              min={-40}
+              max={40}
+              step={0.5}
+              unit=" mm"
+              onChange={(offsetY) => setNFC({ offsetY })}
+            />
+          </>
+        )}
+      </Section>
 
       <Section title="Apparence" defaultOpen={false}>
         <label className="field">

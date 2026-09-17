@@ -62,6 +62,15 @@ export interface TextZoneConfig {
   resolution: number; // pixels per letter height, controls crispness
 }
 
+export interface NFCConfig {
+  enabled: boolean;
+  diameter: number; // mm, tag diameter
+  tagThickness: number; // mm, the physical NFC sticker's thickness
+  clearance: number; // mm, extra play added on top of tagThickness for the pocket depth
+  offsetX: number; // mm from center
+  offsetY: number; // mm from center
+}
+
 export interface ExportConfig {
   filename: string;
   splitParts: boolean; // export base and relief separately for multi-color printing
@@ -75,6 +84,7 @@ export interface KeychainConfig {
   logo: LogoConfig;
   text1: TextZoneConfig;
   text2: TextZoneConfig;
+  nfc: NFCConfig;
   color: string;
   export: ExportConfig;
 }

@@ -11,6 +11,7 @@ import {
   rotateReliefGeometry,
   type ReliefGrid,
 } from './relief';
+import { buildNFCPocketCutter } from './buildNFC';
 
 export interface KeychainInputs {
   qrGrid: ReliefGrid | null;
@@ -113,6 +114,7 @@ export function buildKeychainParts(config: KeychainConfig, inputs: KeychainInput
 
   const text1Geom = buildTextZoneGeometry(inputs.text1Grid, config.text1, zTop, thickness);
   const text2Geom = buildTextZoneGeometry(inputs.text2Grid, config.text2, zTop, thickness);
+  const nfcGeom = buildNFCPocketCutter(config.nfc, thickness);
 
   const cutters: THREE.BufferGeometry[] = [];
   const additions: THREE.BufferGeometry[] = [];
@@ -121,6 +123,7 @@ export function buildKeychainParts(config: KeychainConfig, inputs: KeychainInput
   if (logoGeom) (config.logo.mode === 'engraved' ? cutters : additions).push(logoGeom);
   if (text1Geom) (config.text1.mode === 'engraved' ? cutters : additions).push(text1Geom);
   if (text2Geom) (config.text2.mode === 'engraved' ? cutters : additions).push(text2Geom);
+  if (nfcGeom) cutters.push(nfcGeom);
 
   let base = plateGeom;
   const hasCavities = cutters.length > 0;
