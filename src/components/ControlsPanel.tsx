@@ -374,23 +374,20 @@ export function ControlsPanel({ onExport, onExport3MF, exporting }: Props) {
           <div className="field-row">
             <span>Ou depuis une URL (image, SVG...)</span>
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <input
-              type="text"
-              placeholder="https://..."
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              style={{ flex: 1 }}
-            />
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={handleLogoUrlLoad}
-              disabled={logoUrlLoading || !logoUrl.trim()}
-            >
-              {logoUrlLoading ? '...' : 'Charger'}
-            </button>
-          </div>
+          <input
+            type="text"
+            placeholder="https://..."
+            value={logoUrl}
+            onChange={(e) => setLogoUrl(e.target.value)}
+          />
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleLogoUrlLoad}
+            disabled={logoUrlLoading || !logoUrl.trim()}
+          >
+            {logoUrlLoading ? 'Chargement…' : 'Charger'}
+          </button>
           {logoUrlError && <p className="field-hint field-error">{logoUrlError}</p>}
           <p className="field-hint">
             Ne fonctionne que si le site source autorise le CORS (Wikimedia par exemple) — sinon, télécharge
