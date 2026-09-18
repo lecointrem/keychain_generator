@@ -423,7 +423,7 @@ export function ControlsPanel({ onExport, onExport3MF, exporting }: Props) {
               label="Taille"
               value={config.logo.sizeRatio}
               min={0.05}
-              max={0.9}
+              max={1.5}
               step={0.01}
               unit=""
               onChange={(sizeRatio) => setLogo({ sizeRatio })}
