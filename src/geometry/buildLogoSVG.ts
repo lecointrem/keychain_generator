@@ -6,8 +6,10 @@ import { reliefZPlacement, type ReliefGrid } from './relief';
 
 export interface SvgLogoData {
   shapes: THREE.Shape[];
-  width: number; // reference width, in the SVG's own user units
-  height: number; // reference height, in the SVG's own user units
+  minX: number; // bounding box of the shapes themselves, in SVGLoader's own path-unit space
+  minY: number;
+  width: number;
+  height: number;
   /**
    * False if the SVG has content this parser can't faithfully turn into vector shapes —
    * <text> (SVGLoader doesn't parse it), or a stroke-only path (fill:none). `toShapes()`
@@ -18,13 +20,32 @@ export interface SvgLogoData {
   isFullyVectorizable: boolean;
 }
 
-function loadImageSize(src: string): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve({ width: img.naturalWidth || 1, height: img.naturalHeight || 1 });
-    img.onerror = () => reject(new Error("Impossible de charger le SVG"));
-    img.src = src;
-  });
+/**
+ * Bounding box of the parsed shapes, in the same coordinate space SVGLoader used to build
+ * them. Deliberately NOT derived from an <img>'s naturalWidth/naturalHeight: that's a CSS
+ * rendering size (which, for an SVG with only a viewBox and no explicit width/height
+ * attributes, the browser defaults to a fixed 300x150 unrelated to the path data) — using
+ * it as the scale reference could blow the shapes up by a large, arbitrary factor, leaving
+ * only a flat, featureless fragment of one oversized shape on screen.
+ */
+function computeShapesBounds(shapes: THREE.Shape[]): { minX: number; minY: number; width: number; height: number } {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  const consider = (points: THREE.Vector2[]) => {
+    for (const p of points) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+  };
+  for (const shape of shapes) {
+    consider(shape.getPoints());
+    for (const hole of shape.holes) consider(hole.getPoints());
+  }
+  return { minX, minY, width: maxX - minX, height: maxY - minY };
 }
 
 /** Parses an SVG data URL into extrudable vector shapes, for a crisp logo instead of a pixel-box relief. */
@@ -47,9 +68,11 @@ export async function parseSvgLogo(dataUrl: string): Promise<SvgLogoData | null>
   }
   if (shapes.length === 0) return null;
 
-  const { width, height } = await loadImageSize(dataUrl);
+  const { minX, minY, width, height } = computeShapesBounds(shapes);
+  if (!(width > 0) || !(height > 0)) return null;
+
   const hasTextElements = /<text[\s>]/i.test(svgText);
-  return { shapes, width, height, isFullyVectorizable: !hasTextElements && !hasStrokeOnlyPath };
+  return { shapes, minX, minY, width, height, isFullyVectorizable: !hasTextElements && !hasStrokeOnlyPath };
 }
 
 function shapeNetArea(shape: THREE.Shape): number {
@@ -105,13 +128,15 @@ export function buildSvgLogoGeometry(
   if (height <= 0 || sizeMm <= 0) return null;
   const { boxDepth, zCenter } = reliefZPlacement(height, zTop, mode, thickness);
   const scale = sizeMm / Math.max(data.width, data.height);
+  const centerX = data.minX + data.width / 2;
+  const centerY = data.minY + data.height / 2;
 
   const pieces: THREE.BufferGeometry[] = [];
   for (const shape of data.shapes) {
     const geom = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false, curveSegments: 24 });
-    // Center the SVG's top-left-origin, Y-down space around (0,0), then fit it to
-    // sizeMm and flip Y to match our Y-up convention (extrude spans 0..1 in Z).
-    geom.translate(-data.width / 2, -data.height / 2, -0.5);
+    // Center the shapes' own bounding box around (0,0), then fit it to sizeMm and flip Y
+    // (SVG space is Y-down; ours is Y-up). Extrude spans 0..1 in Z before this scale.
+    geom.translate(-centerX, -centerY, -0.5);
     geom.scale(scale, -scale, boxDepth);
     pieces.push(geom);
   }
