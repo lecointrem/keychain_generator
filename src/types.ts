@@ -51,6 +51,10 @@ export interface LogoConfig {
   threshold: number; // 0..255 grayscale cutoff
   invert: boolean;
   color: string; // print color when raised (used in the 3D preview and 3MF export)
+  /** For an SVG source: extrude its real vector paths instead of rasterizing to a pixel
+   *  grid (crisp edges, no staircase). Falls back to the raster pipeline automatically
+   *  when the SVG contains <text> elements (not parsed into shapes) or fails to parse. */
+  vectorize: boolean;
 }
 
 export interface TextZoneConfig {

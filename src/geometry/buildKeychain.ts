@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ADDITION, Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg';
-import type { KeychainConfig, ReliefMode, TextZoneConfig } from '../types';
+import type { KeychainConfig, LogoConfig, ReliefMode, TextZoneConfig } from '../types';
 import { buildBasePlateGeometry, buildContourGeometry, buildPlateGeometry, plateTopZ } from './buildPlate';
 import { shapeBounds } from './shapeOutline';
 import {
@@ -11,11 +11,13 @@ import {
   rotateReliefGeometry,
   type ReliefGrid,
 } from './relief';
+import { buildSvgLogoGeometry, type SvgLogoData } from './buildLogoSVG';
 import { buildNFCPocketCutter } from './buildNFC';
 
 export interface KeychainInputs {
   qrGrid: ReliefGrid | null;
   logoGrid: ReliefGrid | null;
+  logoSvg: SvgLogoData | null;
   text1Grid: ReliefGrid | null;
   text2Grid: ReliefGrid | null;
   text3Grid: ReliefGrid | null;
@@ -44,6 +46,49 @@ function buildFeatureGeometries(
   const geom = buildReliefGeometry(grid, layout, height, zTop, mode, thickness);
   if (!geom) return null;
   return rotateReliefGeometry(geom, rotation, offsetX, offsetY);
+}
+
+/**
+ * Builds the logo's geometry, extruding real vector paths when the source is an SVG
+ * (crisp edges, no pixel staircase) and falling back to the raster box-grid otherwise —
+ * automatically, if the SVG has unparseable <text> elements or vectorizing is off.
+ */
+function buildLogoFeatureGeometry(
+  logo: LogoConfig,
+  grid: ReliefGrid | null,
+  svg: SvgLogoData | null,
+  zTop: number,
+  thickness: number,
+  bounds: { width: number; height: number },
+): THREE.BufferGeometry | null {
+  if (!logo.enabled) return null;
+  if (logo.vectorize && svg && svg.isFullyVectorizable) {
+    const sizeMm = reliefSizeMm(bounds, logo.sizeRatio);
+    return buildSvgLogoGeometry(
+      svg,
+      sizeMm,
+      logo.offsetX,
+      logo.offsetY,
+      logo.rotation,
+      zTop,
+      logo.reliefHeight,
+      logo.mode,
+      thickness,
+    );
+  }
+  return buildFeatureGeometries(
+    grid,
+    logo.enabled,
+    logo.sizeRatio,
+    logo.offsetX,
+    logo.offsetY,
+    logo.rotation,
+    logo.reliefHeight,
+    logo.mode,
+    zTop,
+    thickness,
+    bounds,
+  );
 }
 
 function buildTextZoneGeometry(
@@ -104,19 +149,7 @@ export function buildKeychainParts(config: KeychainConfig, inputs: KeychainInput
     bounds,
   );
 
-  const logoGeom = buildFeatureGeometries(
-    inputs.logoGrid,
-    config.logo.enabled,
-    config.logo.sizeRatio,
-    config.logo.offsetX,
-    config.logo.offsetY,
-    config.logo.rotation,
-    config.logo.reliefHeight,
-    config.logo.mode,
-    zTop,
-    thickness,
-    bounds,
-  );
+  const logoGeom = buildLogoFeatureGeometry(config.logo, inputs.logoGrid, inputs.logoSvg, zTop, thickness, bounds);
 
   const text1Geom = buildTextZoneGeometry(inputs.text1Grid, config.text1, zTop, thickness);
   const text2Geom = buildTextZoneGeometry(inputs.text2Grid, config.text2, zTop, thickness);
@@ -179,19 +212,7 @@ export function buildKeychainPieces(config: KeychainConfig, inputs: KeychainInpu
     bounds,
   );
 
-  const logoGeom = buildFeatureGeometries(
-    inputs.logoGrid,
-    config.logo.enabled,
-    config.logo.sizeRatio,
-    config.logo.offsetX,
-    config.logo.offsetY,
-    config.logo.rotation,
-    config.logo.reliefHeight,
-    config.logo.mode,
-    zTop,
-    thickness,
-    bounds,
-  );
+  const logoGeom = buildLogoFeatureGeometry(config.logo, inputs.logoGrid, inputs.logoSvg, zTop, thickness, bounds);
 
   const text1Geom = buildTextZoneGeometry(inputs.text1Grid, config.text1, zTop, thickness);
   const text2Geom = buildTextZoneGeometry(inputs.text2Grid, config.text2, zTop, thickness);

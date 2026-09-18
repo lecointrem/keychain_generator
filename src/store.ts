@@ -58,6 +58,7 @@ export const defaultConfig: KeychainConfig = {
     threshold: 128,
     invert: false,
     color: '#1a1a1a',
+    vectorize: true,
   },
   text1: {
     enabled: false,

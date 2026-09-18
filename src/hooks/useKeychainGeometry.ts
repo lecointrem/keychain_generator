@@ -2,15 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import { buildKeychainPieces, type ColoredPiece } from '../geometry/buildKeychain';
 import { buildQRGrid } from '../geometry/buildQR';
 import { buildLogoGrid } from '../geometry/buildLogo';
+import { parseSvgLogo, type SvgLogoData } from '../geometry/buildLogoSVG';
 import { buildTextGrid } from '../geometry/buildText';
 import type { ReliefGrid } from '../geometry/relief';
 import type { KeychainConfig } from '../types';
 import { useDebouncedValue } from './useDebouncedValue';
 
+const SVG_DATA_URL_PREFIX = 'data:image/svg+xml';
+
 export function useKeychainGeometry(config: KeychainConfig) {
   const debounced = useDebouncedValue(config, 120);
   const [qrGrid, setQrGrid] = useState<ReliefGrid | null>(null);
   const [logoGrid, setLogoGrid] = useState<ReliefGrid | null>(null);
+  const [logoSvg, setLogoSvg] = useState<SvgLogoData | null>(null);
   const [text1Grid, setText1Grid] = useState<ReliefGrid | null>(null);
   const [text2Grid, setText2Grid] = useState<ReliefGrid | null>(null);
   const [text3Grid, setText3Grid] = useState<ReliefGrid | null>(null);
@@ -60,6 +64,26 @@ export function useKeychainGeometry(config: KeychainConfig) {
     debounced.logo.threshold,
     debounced.logo.invert,
   ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const isSvg = debounced.logo.imageDataUrl?.startsWith(SVG_DATA_URL_PREFIX) ?? false;
+    if (!debounced.logo.enabled || !debounced.logo.vectorize || !isSvg || !debounced.logo.imageDataUrl) {
+      setLogoSvg(null);
+      return;
+    }
+    parseSvgLogo(debounced.logo.imageDataUrl)
+      .then((data) => {
+        if (!cancelled) setLogoSvg(data);
+      })
+      .catch(() => {
+        if (!cancelled) setLogoSvg(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounced.logo.enabled, debounced.logo.imageDataUrl, debounced.logo.vectorize]);
 
   useEffect(() => {
     let cancelled = false;
@@ -138,7 +162,7 @@ export function useKeychainGeometry(config: KeychainConfig) {
 
   useEffect(() => {
     try {
-      const built = buildKeychainPieces(debounced, { qrGrid, logoGrid, text1Grid, text2Grid, text3Grid });
+      const built = buildKeychainPieces(debounced, { qrGrid, logoGrid, logoSvg, text1Grid, text2Grid, text3Grid });
       piecesRef.current?.forEach((p) => p.geometry.dispose());
       piecesRef.current = built;
       setPieces(built);
@@ -146,7 +170,7 @@ export function useKeychainGeometry(config: KeychainConfig) {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de génération de la géométrie');
     }
-  }, [debounced, qrGrid, logoGrid, text1Grid, text2Grid, text3Grid]);
+  }, [debounced, qrGrid, logoGrid, logoSvg, text1Grid, text2Grid, text3Grid]);
 
   useEffect(
     () => () => {

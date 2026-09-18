@@ -97,6 +97,8 @@ export function ControlsPanel({ onExport, onExport3MF, exporting }: Props) {
     e.target.value = '';
   }
 
+  const isVectorLogo = Boolean(config.logo.imageDataUrl?.startsWith('data:image/svg+xml')) && config.logo.vectorize;
+
   function handleSaveProfile() {
     const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
     downloadBlob(blob, 'profil-porte-cle.json');
@@ -394,6 +396,20 @@ export function ControlsPanel({ onExport, onExport3MF, exporting }: Props) {
             l'image et utilise l'import de fichier ci-dessus.
           </p>
         </label>
+        {config.logo.enabled && config.logo.imageDataUrl?.startsWith('data:image/svg+xml') && (
+          <>
+            <ToggleField
+              label="Vectoriser le SVG (contours nets)"
+              checked={config.logo.vectorize}
+              onChange={(vectorize) => setLogo({ vectorize })}
+            />
+            <p className="field-hint">
+              Extrait les tracés vectoriels du SVG au lieu de le pixelliser — bords nets, pas d'effet d'escalier
+              sur les diagonales. Bascule automatiquement en mode pixel si le SVG contient du texte (balises
+              &lt;text&gt;), des tracés en contour non remplis (stroke), ou s'il ne peut pas être analysé.
+            </p>
+          </>
+        )}
         {config.logo.enabled && (
           <>
             <SelectField
@@ -451,32 +467,36 @@ export function ControlsPanel({ onExport, onExport3MF, exporting }: Props) {
               unit=" mm"
               onChange={(reliefHeight) => setLogo({ reliefHeight })}
             />
-            <SliderField
-              label="Résolution (détail)"
-              value={config.logo.resolution}
-              min={12}
-              max={96}
-              step={1}
-              unit=" px"
-              onChange={(resolution) => setLogo({ resolution })}
-            />
-            <SliderField
-              label="Seuil noir/blanc"
-              value={config.logo.threshold}
-              min={10}
-              max={245}
-              step={1}
-              unit=""
-              onChange={(threshold) => setLogo({ threshold })}
-            />
-            <ToggleField
-              label="Négatif (inverser le motif)"
-              checked={config.logo.invert}
-              onChange={(invert) => setLogo({ invert })}
-            />
-            <p className="field-hint">
-              Inverse les zones qui deviennent du relief : ce qui était plein devient vide, et inversement.
-            </p>
+            {!isVectorLogo && (
+              <>
+                <SliderField
+                  label="Résolution (détail)"
+                  value={config.logo.resolution}
+                  min={12}
+                  max={96}
+                  step={1}
+                  unit=" px"
+                  onChange={(resolution) => setLogo({ resolution })}
+                />
+                <SliderField
+                  label="Seuil noir/blanc"
+                  value={config.logo.threshold}
+                  min={10}
+                  max={245}
+                  step={1}
+                  unit=""
+                  onChange={(threshold) => setLogo({ threshold })}
+                />
+                <ToggleField
+                  label="Négatif (inverser le motif)"
+                  checked={config.logo.invert}
+                  onChange={(invert) => setLogo({ invert })}
+                />
+                <p className="field-hint">
+                  Inverse les zones qui deviennent du relief : ce qui était plein devient vide, et inversement.
+                </p>
+              </>
+            )}
             {config.logo.mode === 'raised' && (
               <ColorField label="Couleur" value={config.logo.color} onChange={(color) => setLogo({ color })} />
             )}

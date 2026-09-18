@@ -72,6 +72,23 @@ export function rotateReliefGeometry(
 const EMBED = 0.2; // mm, extra overlap driven into the base plate for a strong bond
 const POKE = 0.2; // mm, extra depth an engraving cutter pokes above the surface
 
+/**
+ * Computes the Z span (depth + center) a piece of relief material should occupy, shared
+ * by every relief geometry builder (box-grid raster and SVG vector extrusion alike) so
+ * raised/engraved pieces bond and cut the same way regardless of how they were shaped.
+ */
+export function reliefZPlacement(
+  height: number,
+  zTop: number,
+  mode: ReliefMode,
+  thickness: number,
+): { boxDepth: number; zCenter: number } {
+  const embed = Math.min(EMBED, thickness * 0.5);
+  const boxDepth = mode === 'raised' ? height + embed : height + POKE;
+  const zCenter = mode === 'raised' ? zTop - embed / 2 + height / 2 : zTop - height / 2 + POKE / 2;
+  return { boxDepth, zCenter };
+}
+
 interface Rect {
   col: number;
   row: number;
@@ -138,10 +155,7 @@ export function buildReliefGeometry(
   const { moduleSize, originX, originY } = layout;
   if (cols === 0 || rows === 0 || height <= 0) return null;
 
-  const embed = Math.min(EMBED, thickness * 0.5);
-  const boxDepth = mode === 'raised' ? height + embed : height + POKE;
-  const zCenter =
-    mode === 'raised' ? zTop - embed / 2 + height / 2 : zTop - height / 2 + POKE / 2;
+  const { boxDepth, zCenter } = reliefZPlacement(height, zTop, mode, thickness);
 
   const rects = computeRectangles(cols, rows, cells);
   if (rects.length === 0) return null;

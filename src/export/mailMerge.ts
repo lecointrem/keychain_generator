@@ -67,6 +67,7 @@ async function buildPersonGrids(
   return {
     qrGrid: row.qr !== null ? buildQRGrid(personCfg.qr) : shared.qrGrid,
     logoGrid: shared.logoGrid,
+    logoSvg: shared.logoSvg,
     text1Grid: row.text1 !== null ? await buildTextGrid(personCfg.text1) : shared.text1Grid,
     text2Grid: row.text2 !== null ? await buildTextGrid(personCfg.text2) : shared.text2Grid,
     text3Grid: row.text3 !== null ? await buildTextGrid(personCfg.text3) : shared.text3Grid,
