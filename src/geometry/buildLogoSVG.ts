@@ -22,6 +22,24 @@ export interface SvgLogoData {
 const VISUAL_TAGS = new Set(['path', 'rect', 'circle', 'polygon', 'line', 'ellipse', 'polyline', 'use', 'image']);
 
 /**
+ * Luminance of an SVGLoader-resolved fill color, matching the raster path's own formula
+ * (buildLogo.ts) so "which parts become raised material" means the same thing whether the
+ * logo goes through vector or pixel mode. SVGLoader resolves any fill (hex, named color,
+ * inline style) through the browser's CSSOM, which always normalizes to "rgb(r, g, b)" —
+ * so a simple regex is enough; returns null only for something unparseable (a gradient
+ * url(...) reference, most commonly).
+ */
+function fillLuminance(fillStr: string | undefined): number | null {
+  if (!fillStr) return null;
+  const m = fillStr.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (!m) return null;
+  const r = Number(m[1]);
+  const g = Number(m[2]);
+  const b = Number(m[3]);
+  return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+
+/**
  * The SVG's own declared coordinate box — the same space its <path> data and viewBox live
  * in. This must NOT be derived from an <img>'s naturalWidth/naturalHeight (a CSS rendering
  * size the browser can default to something unrelated, e.g. 150x150 for an SVG that only
@@ -216,17 +234,30 @@ export async function parseSvgLogo(logo: LogoConfig): Promise<SvgLogoData | null
         | undefined
     )?.style;
     const isFilled = !style || style.fill === undefined || style.fill !== 'none';
+    const luminance = fillLuminance(style?.fill);
+    // Same rule as the raster path: only "dark" (below threshold) fill counts as ink that
+    // should become raised material — otherwise a background/highlight layer (e.g. a
+    // full-bleed backdrop rect, or a light bevel facet) would get extruded right along
+    // with the actual icon, merging into one undifferentiated block. A color that can't be
+    // read as a resolved rgb() (typically a gradient) defaults to "ink", same as the
+    // raster path treats anything it can't classify.
+    let isInk = luminance === null ? true : luminance < logo.threshold;
+    if (logo.invert) isInk = !isInk;
     console.log(
-      `[svg-logo] path ${pathIdx}: fill=${style?.fill ?? '(default #000)'} stroke=${style?.stroke ?? '(none)'} ` +
-        `strokeWidth=${style?.strokeWidth ?? '(none)'} subPaths=${path.subPaths.length} isFilled=${isFilled}`,
+      `[svg-logo] path ${pathIdx}: fill=${style?.fill ?? '(default #000)'} luminance=${luminance?.toFixed(0) ?? 'n/a'} ` +
+        `stroke=${style?.stroke ?? '(none)'} strokeWidth=${style?.strokeWidth ?? '(none)'} ` +
+        `subPaths=${path.subPaths.length} isFilled=${isFilled} isInk=${isInk}`,
     );
-    if (isFilled) {
+    if (isFilled && isInk) {
       const newShapes = path.toShapes();
       console.log(`[svg-logo]   -> toShapes() produced ${newShapes.length} shape(s)`);
       shapes.push(...newShapes);
     }
 
-    if (style?.stroke && style.stroke !== 'none' && style.strokeWidth) {
+    const strokeLuminance = fillLuminance(style?.stroke);
+    let strokeIsInk = strokeLuminance === null ? true : strokeLuminance < logo.threshold;
+    if (logo.invert) strokeIsInk = !strokeIsInk;
+    if (style?.stroke && style.stroke !== 'none' && style.strokeWidth && strokeIsInk) {
       for (const subPath of path.subPaths) {
         const points = subPath.getPoints();
         if (points.length < 2) continue;
@@ -275,53 +306,6 @@ export async function parseSvgLogo(logo: LogoConfig): Promise<SvgLogoData | null
     refHeight: refBox.height,
     textGrid,
   };
-}
-
-function shapeNetArea(shape: THREE.Shape): number {
-  const outer = Math.abs(THREE.ShapeUtils.area(shape.getPoints()));
-  const holesArea = shape.holes.reduce((sum, h) => sum + Math.abs(THREE.ShapeUtils.area(h.getPoints())), 0);
-  return Math.max(0, outer - holesArea);
-}
-
-/** Fraction of the SVG's reference box covered by ink, according to the filled vector shapes alone. */
-function vectorCoverageRatio(data: SvgLogoData): number {
-  const refArea = data.refWidth * data.refHeight;
-  if (refArea <= 0) return 0;
-  const totalArea = data.shapes.reduce((sum, s) => sum + shapeNetArea(s), 0);
-  return totalArea / refArea;
-}
-
-/**
- * Cross-checks the vectorized *filled* shapes against the raster rasterization of the same
- * logo. SVGLoader's `toShapes()` only detects holes heuristically from winding order — it
- * gets this wrong on some real-world logos (particularly artwork using fill-rule="evenodd"
- * or overlapping compound paths), producing a solid blob where the artwork should have
- * cutouts/facets. When the filled shapes cover far more of the reference box than the
- * raster ink coverage does, that mismatch means the vector result is likely wrong, so the
- * caller should fall back to the (always-correct, browser-rendered) raster pipeline
- * instead. Skipped whenever the logo also has separately-handled text or strokes —
- * comparing filled-only coverage against a raster that also includes their ink would be an
- * apples-to-oranges skew — the absolute near-total-fill check below still catches the same
- * failure mode for the filled portion.
- */
-export function isVectorTrustworthy(svg: SvgLogoData, grid: ReliefGrid | null): boolean {
-  const vectorRatio = vectorCoverageRatio(svg);
-  if (vectorRatio > 0.85) {
-    console.log(`[svg-logo] trust check: filled-shape coverage ${vectorRatio.toFixed(2)} > 0.85 -> rejecting`);
-    return false; // near-total fill is almost never real logo artwork
-  }
-  const hasOtherInk = svg.textGrid !== null || svg.strokeGeometries.length > 0;
-  if (hasOtherInk || !grid || grid.cells.length === 0) {
-    console.log('[svg-logo] trust check: nothing comparable to cross-check against -> trusting');
-    return true;
-  }
-  const filled = grid.cells.reduce((n, c) => n + (c ? 1 : 0), 0);
-  const rasterRatio = filled / grid.cells.length;
-  const trusted = Math.abs(vectorRatio - rasterRatio) <= 0.35;
-  console.log(
-    `[svg-logo] trust check: vector=${vectorRatio.toFixed(2)} raster=${rasterRatio.toFixed(2)} -> ${trusted ? 'trusting' : 'rejecting'}`,
-  );
-  return trusted;
 }
 
 /**

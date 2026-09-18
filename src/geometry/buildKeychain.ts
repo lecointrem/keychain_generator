@@ -11,7 +11,7 @@ import {
   rotateReliefGeometry,
   type ReliefGrid,
 } from './relief';
-import { buildSvgLogoGeometry, isVectorTrustworthy, type SvgLogoData } from './buildLogoSVG';
+import { buildSvgLogoGeometry, type SvgLogoData } from './buildLogoSVG';
 import { buildNFCPocketCutter } from './buildNFC';
 
 export interface KeychainInputs {
@@ -51,9 +51,13 @@ function buildFeatureGeometries(
 /**
  * Builds the logo's geometry, extruding real vector paths when the source is an SVG
  * (crisp edges, no pixel staircase) and falling back to the raster box-grid otherwise —
- * automatically, if vectorizing is off, the SVG has unparseable content (<text>,
- * stroke-only paths), or the vector result doesn't look trustworthy against the raster
- * rendering of the same file (see isVectorTrustworthy).
+ * automatically, if vectorizing is off or the SVG couldn't be parsed into any vectorizable
+ * content at all. There's no further "does this look right" heuristic beyond that: a
+ * multi-layer logo (background + icon + lettering, all overlapping) legitimately covers
+ * well over 100% of its own bounding box once every layer's area is summed, so coverage-
+ * based sanity checks reject real artwork as often as they'd catch a genuine bug. The
+ * "Vectoriser le SVG" toggle is the user's own escape hatch if a specific file ever
+ * vectorizes wrong.
  */
 function buildLogoFeatureGeometry(
   logo: LogoConfig,
@@ -64,7 +68,7 @@ function buildLogoFeatureGeometry(
   bounds: { width: number; height: number },
 ): THREE.BufferGeometry | null {
   if (!logo.enabled) return null;
-  if (logo.vectorize && svg && isVectorTrustworthy(svg, grid)) {
+  if (logo.vectorize && svg) {
     const sizeMm = reliefSizeMm(bounds, logo.sizeRatio);
     return buildSvgLogoGeometry(
       svg,

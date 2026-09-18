@@ -406,8 +406,8 @@ export function ControlsPanel({ onExport, onExport3MF, exporting }: Props) {
             <p className="field-hint">
               Extrait les tracés vectoriels du SVG (remplissages et contours) au lieu de le pixelliser — bords
               nets, pas d'effet d'escalier sur les diagonales. Si le SVG contient du texte (balises &lt;text&gt;),
-              il est automatiquement pixellisé à part et fusionné avec le reste vectorisé. Bascule entièrement en
-              mode pixel seulement si le SVG ne peut pas être analysé, ou si le résultat semble incohérent.
+              il est automatiquement pixellisé à part et fusionné avec le reste vectorisé. Désactive cette option
+              si un fichier en particulier se vectorise mal.
             </p>
           </>
         )}
