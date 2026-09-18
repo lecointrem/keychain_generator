@@ -11,7 +11,7 @@ import {
   rotateReliefGeometry,
   type ReliefGrid,
 } from './relief';
-import { buildSvgLogoGeometry, type SvgLogoData } from './buildLogoSVG';
+import { buildSvgLogoGeometry, isVectorTrustworthy, type SvgLogoData } from './buildLogoSVG';
 import { buildNFCPocketCutter } from './buildNFC';
 
 export interface KeychainInputs {
@@ -51,7 +51,9 @@ function buildFeatureGeometries(
 /**
  * Builds the logo's geometry, extruding real vector paths when the source is an SVG
  * (crisp edges, no pixel staircase) and falling back to the raster box-grid otherwise —
- * automatically, if the SVG has unparseable <text> elements or vectorizing is off.
+ * automatically, if vectorizing is off, the SVG has unparseable content (<text>,
+ * stroke-only paths), or the vector result doesn't look trustworthy against the raster
+ * rendering of the same file (see isVectorTrustworthy).
  */
 function buildLogoFeatureGeometry(
   logo: LogoConfig,
@@ -62,7 +64,7 @@ function buildLogoFeatureGeometry(
   bounds: { width: number; height: number },
 ): THREE.BufferGeometry | null {
   if (!logo.enabled) return null;
-  if (logo.vectorize && svg && svg.isFullyVectorizable) {
+  if (logo.vectorize && svg && isVectorTrustworthy(svg, grid)) {
     const sizeMm = reliefSizeMm(bounds, logo.sizeRatio);
     return buildSvgLogoGeometry(
       svg,

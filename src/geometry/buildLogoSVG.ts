@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { ReliefMode } from '../types';
-import { reliefZPlacement } from './relief';
+import { reliefZPlacement, type ReliefGrid } from './relief';
 
 export interface SvgLogoData {
   shapes: THREE.Shape[];
@@ -50,6 +50,40 @@ export async function parseSvgLogo(dataUrl: string): Promise<SvgLogoData | null>
   const { width, height } = await loadImageSize(dataUrl);
   const hasTextElements = /<text[\s>]/i.test(svgText);
   return { shapes, width, height, isFullyVectorizable: !hasTextElements && !hasStrokeOnlyPath };
+}
+
+function shapeNetArea(shape: THREE.Shape): number {
+  const outer = Math.abs(THREE.ShapeUtils.area(shape.getPoints()));
+  const holesArea = shape.holes.reduce((sum, h) => sum + Math.abs(THREE.ShapeUtils.area(h.getPoints())), 0);
+  return Math.max(0, outer - holesArea);
+}
+
+/** Fraction of the SVG's reference box actually covered by ink, according to the vector shapes. */
+function vectorCoverageRatio(data: SvgLogoData): number {
+  const refArea = data.width * data.height;
+  if (refArea <= 0) return 0;
+  const totalArea = data.shapes.reduce((sum, s) => sum + shapeNetArea(s), 0);
+  return totalArea / refArea;
+}
+
+/**
+ * Cross-checks the vectorized shapes against the raster rasterization of the same logo.
+ * SVGLoader's `toShapes()` only detects holes heuristically from winding order — it gets
+ * this wrong on some real-world logos (particularly artwork using fill-rule="evenodd" or
+ * overlapping compound paths), producing a solid blob where the artwork should have
+ * cutouts/facets. When the vector shapes cover far more (or less) of the reference box
+ * than the raster ink coverage does, that mismatch means the vector result is likely
+ * wrong, so the caller should fall back to the (always-correct, browser-rendered) raster
+ * pipeline instead.
+ */
+export function isVectorTrustworthy(svg: SvgLogoData, grid: ReliefGrid | null): boolean {
+  if (!svg.isFullyVectorizable) return false;
+  const vectorRatio = vectorCoverageRatio(svg);
+  if (vectorRatio > 0.85) return false; // near-total fill is almost never real logo artwork
+  if (!grid || grid.cells.length === 0) return true; // nothing to cross-check against, trust it
+  const filled = grid.cells.reduce((n, c) => n + (c ? 1 : 0), 0);
+  const rasterRatio = filled / grid.cells.length;
+  return Math.abs(vectorRatio - rasterRatio) <= 0.35;
 }
 
 /**
