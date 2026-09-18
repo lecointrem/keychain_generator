@@ -7,20 +7,16 @@ import { buildReliefGeometry, computeReliefLayout, reliefZPlacement, type Relief
 
 export interface SvgLogoData {
   shapes: THREE.Shape[];
+  /** Pre-extruded solid stroke ribbons (outline-only paths), spanning z:[0,1] — the same
+   *  raw convention as `new THREE.ExtrudeGeometry(shape, { depth: 1 })` before centering,
+   *  so both go through the same transform in buildSvgLogoGeometry. */
+  strokeGeometries: THREE.BufferGeometry[];
   refMinX: number; // the SVG's own reference box (viewBox, or width/height), in its user-unit space
   refMinY: number;
   refWidth: number;
   refHeight: number;
   /** Rasterized <text> content (SVGLoader can't parse it), pre-aligned to the same ref box. */
   textGrid: ReliefGrid | null;
-  /**
-   * False if the SVG has content this parser can't faithfully turn into vector shapes: a
-   * stroke-only path (fill:none). `toShapes()` only reads fill geometry, so a stroke-only
-   * path (e.g. a thin outline stroke) would otherwise be silently dropped or, worse,
-   * wrongly filled in solid. When false, the caller should fall back to the raster
-   * pipeline entirely instead of using `shapes`.
-   */
-  isFullyVectorizable: boolean;
 }
 
 const VISUAL_TAGS = new Set(['path', 'rect', 'circle', 'polygon', 'line', 'ellipse', 'polyline', 'use', 'image']);
@@ -30,12 +26,12 @@ const VISUAL_TAGS = new Set(['path', 'rect', 'circle', 'polygon', 'line', 'ellip
  * in. This must NOT be derived from an <img>'s naturalWidth/naturalHeight (a CSS rendering
  * size the browser can default to something unrelated, e.g. 150x150 for an SVG that only
  * declares a viewBox) — using that as the scale reference silently blows shapes up by an
- * arbitrary factor. Falls back to the parsed shapes' own bounding box only as a last
- * resort, for the rare SVG with neither a viewBox nor width/height attributes.
+ * arbitrary factor. Falls back to the bounding box of every parsed path's own points only
+ * as a last resort, for the rare SVG with neither a viewBox nor width/height attributes.
  */
 function parseSvgRefBox(
   root: Element,
-  shapes: THREE.Shape[],
+  paths: THREE.ShapePath[],
 ): { minX: number; minY: number; width: number; height: number } {
   const viewBoxAttr = root.getAttribute('viewBox');
   if (viewBoxAttr) {
@@ -49,10 +45,10 @@ function parseSvgRefBox(
   if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
     return { minX: 0, minY: 0, width: w, height: h };
   }
-  return computeShapesBounds(shapes);
+  return computeAllPathsBounds(paths);
 }
 
-function computeShapesBounds(shapes: THREE.Shape[]): { minX: number; minY: number; width: number; height: number } {
+function computeAllPathsBounds(paths: THREE.ShapePath[]): { minX: number; minY: number; width: number; height: number } {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -65,11 +61,98 @@ function computeShapesBounds(shapes: THREE.Shape[]): { minX: number; minY: numbe
       if (p.y > maxY) maxY = p.y;
     }
   };
-  for (const shape of shapes) {
-    consider(shape.getPoints());
-    for (const hole of shape.holes) consider(hole.getPoints());
+  for (const path of paths) {
+    for (const subPath of path.subPaths) consider(subPath.getPoints());
   }
   return { minX, minY, width: maxX - minX, height: maxY - minY };
+}
+
+/** Signed volume of a closed triangle-soup mesh (non-indexed); negative means inward-facing normals. */
+function signedVolume(positions: Float32Array, triCount: number): number {
+  let vol = 0;
+  for (let t = 0; t < triCount; t++) {
+    const o = t * 9;
+    const ax = positions[o], ay = positions[o + 1], az = positions[o + 2];
+    const bx = positions[o + 3], by = positions[o + 4], bz = positions[o + 5];
+    const cx = positions[o + 6], cy = positions[o + 7], cz = positions[o + 8];
+    vol += ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx);
+  }
+  return vol / 6;
+}
+
+/**
+ * Extrudes a flat (Z≈0), non-indexed triangle mesh into a closed solid spanning z:[0,1] —
+ * used for a stroke ribbon (from `SVGLoader.pointsToStroke`), which is flat 2D geometry
+ * with no thickness of its own. Duplicates it as top/bottom caps, then finds the mesh's
+ * boundary edges (edges belonging to exactly one triangle — the ribbon's silhouette) and
+ * builds a wall quad along each one. Winding is verified and corrected globally via the
+ * mesh's signed volume, rather than assumed, since `pointsToStroke`'s own winding isn't
+ * documented.
+ */
+function extrudeFlatMesh(flat: THREE.BufferGeometry): THREE.BufferGeometry {
+  const pos = flat.attributes.position;
+  const triCount = pos.count / 3;
+  const verts: { x: number; y: number }[] = new Array(pos.count);
+  for (let i = 0; i < pos.count; i++) verts[i] = { x: pos.getX(i), y: pos.getY(i) };
+
+  const keyOf = (p: { x: number; y: number }) => `${p.x.toFixed(4)},${p.y.toFixed(4)}`;
+  const edgeKey = (a: { x: number; y: number }, b: { x: number; y: number }) => `${keyOf(a)}>${keyOf(b)}`;
+  const edgeSet = new Set<string>();
+  for (let t = 0; t < triCount; t++) {
+    const [p0, p1, p2] = [verts[t * 3], verts[t * 3 + 1], verts[t * 3 + 2]];
+    edgeSet.add(edgeKey(p0, p1));
+    edgeSet.add(edgeKey(p1, p2));
+    edgeSet.add(edgeKey(p2, p0));
+  }
+  const boundary: [{ x: number; y: number }, { x: number; y: number }][] = [];
+  for (let t = 0; t < triCount; t++) {
+    const tri = [verts[t * 3], verts[t * 3 + 1], verts[t * 3 + 2]];
+    for (let e = 0; e < 3; e++) {
+      const a = tri[e];
+      const b = tri[(e + 1) % 3];
+      if (!edgeSet.has(edgeKey(b, a))) boundary.push([a, b]);
+    }
+  }
+
+  const TOP = 1;
+  const BOTTOM = 0;
+  const positions: number[] = [];
+  const pushTri = (a: [number, number, number], b: [number, number, number], c: [number, number, number]) => {
+    positions.push(...a, ...b, ...c);
+  };
+  for (let t = 0; t < triCount; t++) {
+    const [p0, p1, p2] = [verts[t * 3], verts[t * 3 + 1], verts[t * 3 + 2]];
+    pushTri([p0.x, p0.y, TOP], [p1.x, p1.y, TOP], [p2.x, p2.y, TOP]);
+    pushTri([p0.x, p0.y, BOTTOM], [p2.x, p2.y, BOTTOM], [p1.x, p1.y, BOTTOM]);
+  }
+  for (const [a, b] of boundary) {
+    pushTri([a.x, a.y, BOTTOM], [b.x, b.y, BOTTOM], [b.x, b.y, TOP]);
+    pushTri([a.x, a.y, BOTTOM], [b.x, b.y, TOP], [a.x, a.y, TOP]);
+  }
+
+  const positionsArr = new Float32Array(positions);
+  const solidTriCount = positionsArr.length / 9;
+  if (signedVolume(positionsArr, solidTriCount) < 0) {
+    // Flip every triangle's winding (swap its 2nd/3rd vertex) so normals point outward.
+    for (let t = 0; t < solidTriCount; t++) {
+      const o1 = t * 9 + 3;
+      const o2 = t * 9 + 6;
+      for (let k = 0; k < 3; k++) {
+        const tmp = positionsArr[o1 + k];
+        positionsArr[o1 + k] = positionsArr[o2 + k];
+        positionsArr[o2 + k] = tmp;
+      }
+    }
+  }
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(positionsArr, 3));
+  // Unused (flat-colored material, no texture) but required: mergeGeometries() refuses to
+  // combine geometries whose attribute sets differ, and ExtrudeGeometry/BoxGeometry (the
+  // shapes/text pieces this gets merged with) both carry a uv attribute.
+  geom.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((positionsArr.length / 3) * 2), 2));
+  geom.computeVertexNormals();
+  return geom;
 }
 
 /**
@@ -107,10 +190,12 @@ function buildTextOnlySvgDataUrl(
 }
 
 /**
- * Parses an SVG logo into extrudable vector shapes for a crisp relief instead of a pixel-
- * box one. Any <text> (SVGLoader only parses path/shape geometry, never text) is rasterized
- * separately and returned pre-aligned as `textGrid`, so the caller can merge a clean
- * vectorized diamond/icon with correctly-positioned pixelated text, say, in one piece.
+ * Parses an SVG logo into extrudable vector geometry for a crisp relief instead of a
+ * pixel-box one: filled paths become THREE.Shapes (extruded later), stroke-only paths
+ * (fill:none) are extruded directly from their stroke ribbon since `toShapes()` only reads
+ * fill geometry and would otherwise drop or wrongly solid-fill them, and any <text>
+ * (SVGLoader never parses text) is rasterized separately and pre-aligned as `textGrid` —
+ * so the caller can merge a clean vectorized icon with correctly-positioned pixel text.
  */
 export async function parseSvgLogo(logo: LogoConfig): Promise<SvgLogoData | null> {
   if (!logo.imageDataUrl) return null;
@@ -120,20 +205,35 @@ export async function parseSvgLogo(logo: LogoConfig): Promise<SvgLogoData | null
   const svgData = loader.parse(svgText);
 
   const shapes: THREE.Shape[] = [];
-  let hasStrokeOnlyPath = false;
+  const strokeGeometries: THREE.BufferGeometry[] = [];
   for (const path of svgData.paths) {
-    const style = (path.userData as { style?: { fill?: string; stroke?: string } } | undefined)?.style;
+    const style = (
+      path.userData as
+        | { style?: { fill?: string; stroke?: string; strokeWidth?: number } }
+        | undefined
+    )?.style;
     const isFilled = !style || style.fill === undefined || style.fill !== 'none';
-    if (isFilled) {
-      shapes.push(...path.toShapes());
-    } else if (style?.stroke && style.stroke !== 'none') {
-      hasStrokeOnlyPath = true;
+    if (isFilled) shapes.push(...path.toShapes());
+
+    if (style?.stroke && style.stroke !== 'none' && style.strokeWidth) {
+      for (const subPath of path.subPaths) {
+        const points = subPath.getPoints();
+        if (points.length < 2) continue;
+        // `style` (from path.userData) is a plain object; SVGLoader's own JSDoc types
+        // don't precisely describe it, but it already carries every field pointsToStroke
+        // needs (populated with defaults during parse()).
+        const strokeGeom = SVGLoader.pointsToStroke(points, style as never);
+        if (strokeGeom) {
+          strokeGeometries.push(extrudeFlatMesh(strokeGeom));
+          strokeGeom.dispose();
+        }
+      }
     }
   }
-  if (shapes.length === 0) return null;
+  if (shapes.length === 0 && strokeGeometries.length === 0) return null;
 
   const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
-  const refBox = parseSvgRefBox(doc.documentElement, shapes);
+  const refBox = parseSvgRefBox(doc.documentElement, svgData.paths);
   if (!(refBox.width > 0) || !(refBox.height > 0)) return null;
 
   const textOnlyUrl = buildTextOnlySvgDataUrl(doc, refBox);
@@ -141,12 +241,12 @@ export async function parseSvgLogo(logo: LogoConfig): Promise<SvgLogoData | null
 
   return {
     shapes,
+    strokeGeometries,
     refMinX: refBox.minX,
     refMinY: refBox.minY,
     refWidth: refBox.width,
     refHeight: refBox.height,
     textGrid,
-    isFullyVectorizable: !hasStrokeOnlyPath,
   };
 }
 
@@ -156,7 +256,7 @@ function shapeNetArea(shape: THREE.Shape): number {
   return Math.max(0, outer - holesArea);
 }
 
-/** Fraction of the SVG's reference box covered by ink, according to the vector shapes alone. */
+/** Fraction of the SVG's reference box covered by ink, according to the filled vector shapes alone. */
 function vectorCoverageRatio(data: SvgLogoData): number {
   const refArea = data.refWidth * data.refHeight;
   if (refArea <= 0) return 0;
@@ -165,32 +265,34 @@ function vectorCoverageRatio(data: SvgLogoData): number {
 }
 
 /**
- * Cross-checks the vectorized shapes against the raster rasterization of the same logo.
- * SVGLoader's `toShapes()` only detects holes heuristically from winding order — it gets
- * this wrong on some real-world logos (particularly artwork using fill-rule="evenodd" or
- * overlapping compound paths), producing a solid blob where the artwork should have
- * cutouts/facets. When the vector shapes cover far more of the reference box than the
+ * Cross-checks the vectorized *filled* shapes against the raster rasterization of the same
+ * logo. SVGLoader's `toShapes()` only detects holes heuristically from winding order — it
+ * gets this wrong on some real-world logos (particularly artwork using fill-rule="evenodd"
+ * or overlapping compound paths), producing a solid blob where the artwork should have
+ * cutouts/facets. When the filled shapes cover far more of the reference box than the
  * raster ink coverage does, that mismatch means the vector result is likely wrong, so the
  * caller should fall back to the (always-correct, browser-rendered) raster pipeline
- * instead. Skipped when the logo has its own separately-rasterized text (comparing against
- * the full raster, text included, would be an apples-to-oranges skew) — the absolute
- * near-total-fill check below still catches the same failure mode.
+ * instead. Skipped whenever the logo also has separately-handled text or strokes —
+ * comparing filled-only coverage against a raster that also includes their ink would be an
+ * apples-to-oranges skew — the absolute near-total-fill check below still catches the same
+ * failure mode for the filled portion.
  */
 export function isVectorTrustworthy(svg: SvgLogoData, grid: ReliefGrid | null): boolean {
-  if (!svg.isFullyVectorizable) return false;
   const vectorRatio = vectorCoverageRatio(svg);
   if (vectorRatio > 0.85) return false; // near-total fill is almost never real logo artwork
-  if (svg.textGrid || !grid || grid.cells.length === 0) return true; // nothing comparable to cross-check against
+  const hasOtherInk = svg.textGrid !== null || svg.strokeGeometries.length > 0;
+  if (hasOtherInk || !grid || grid.cells.length === 0) return true; // nothing comparable to cross-check against
   const filled = grid.cells.reduce((n, c) => n + (c ? 1 : 0), 0);
   const rasterRatio = filled / grid.cells.length;
   return Math.abs(vectorRatio - rasterRatio) <= 0.35;
 }
 
 /**
- * Extrudes an SVG's real vector paths instead of rasterizing to a box grid — clean
- * diagonal/curved edges instead of the staircase artifacts a pixel relief produces at the
- * same feature size — and merges in a rasterized-text overlay when the SVG has <text>, so
- * the two stay aligned as one piece. Positioned/sized/rotated like the raster logo path.
+ * Extrudes an SVG's real vector paths (fills and strokes alike) instead of rasterizing to
+ * a box grid — clean diagonal/curved edges instead of the staircase artifacts a pixel
+ * relief produces at the same feature size — and merges in a rasterized-text overlay when
+ * the SVG has <text>, so all of it stays aligned as one piece. Positioned/sized/rotated
+ * like the raster logo path.
  */
 export function buildSvgLogoGeometry(
   data: SvgLogoData,
@@ -209,19 +311,33 @@ export function buildSvgLogoGeometry(
   const centerX = data.refMinX + data.refWidth / 2;
   const centerY = data.refMinY + data.refHeight / 2;
 
+  // Center the ref box around (0,0), fit it to sizeMm, flip Y (SVG space is Y-down; ours
+  // is Y-up), and place it at its final world Z right away — buildReliefGeometry (used for
+  // the text piece below) already bakes zCenter into its output rather than leaving it
+  // local-centered, so everything needs to land at the same final Z *before* merging, not
+  // via a shared translate afterward (that would shift the text piece a second time).
+  // Both shapes and pre-built stroke solids span z:0..1 raw.
+  const placeInFrame = (geom: THREE.BufferGeometry) => {
+    geom.translate(-centerX, -centerY, -0.5);
+    geom.scale(scale, -scale, boxDepth);
+    geom.translate(0, 0, zCenter);
+    return geom;
+  };
+
   const pieces: THREE.BufferGeometry[] = [];
   for (const shape of data.shapes) {
     const geom = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false, curveSegments: 24 });
-    // Center the ref box around (0,0), then fit it to sizeMm and flip Y (SVG space is
-    // Y-down; ours is Y-up). Extrude spans 0..1 in Z before this scale.
-    geom.translate(-centerX, -centerY, -0.5);
-    geom.scale(scale, -scale, boxDepth);
-    pieces.push(geom);
+    pieces.push(placeInFrame(geom));
+  }
+  for (const strokeGeom of data.strokeGeometries) {
+    pieces.push(placeInFrame(strokeGeom.clone()));
   }
 
   if (data.textGrid) {
     // Built with the SAME sizeMm/aspect as the vector shapes (the text raster's canvas was
-    // forced to the identical ref box), so it lines up exactly once both are merged.
+    // forced to the identical ref box), so it lines up exactly once both are merged. Its Z
+    // placement is already final (see comment above), unlike the pieces built by this
+    // function.
     const layout = computeReliefLayout(data.textGrid.cols, data.textGrid.rows, sizeMm, 0, 0);
     const textGeom = buildReliefGeometry(data.textGrid, layout, height, zTop, mode, thickness);
     if (textGeom) pieces.push(textGeom);
@@ -234,7 +350,7 @@ export function buildSvgLogoGeometry(
 
   const rad = (rotation * Math.PI) / 180;
   merged.rotateZ(rad);
-  merged.translate(offsetX, offsetY, zCenter);
+  merged.translate(offsetX, offsetY, 0);
 
   return merged.index ? merged.toNonIndexed() : merged;
 }
