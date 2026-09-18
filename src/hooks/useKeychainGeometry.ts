@@ -76,7 +76,8 @@ export function useKeychainGeometry(config: KeychainConfig) {
       .then((data) => {
         if (!cancelled) setLogoSvg(data);
       })
-      .catch(() => {
+      .catch((e) => {
+        console.error('[svg-logo] parseSvgLogo threw, falling back to raster:', e);
         if (!cancelled) setLogoSvg(null);
       });
     return () => {

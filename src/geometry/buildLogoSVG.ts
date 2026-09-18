@@ -203,41 +203,68 @@ export async function parseSvgLogo(logo: LogoConfig): Promise<SvgLogoData | null
 
   const loader = new SVGLoader();
   const svgData = loader.parse(svgText);
+  console.log(`[svg-logo] parsed ${svgData.paths.length} path(s) from the source SVG`);
 
   const shapes: THREE.Shape[] = [];
   const strokeGeometries: THREE.BufferGeometry[] = [];
+  let pathIdx = 0;
   for (const path of svgData.paths) {
+    pathIdx++;
     const style = (
       path.userData as
         | { style?: { fill?: string; stroke?: string; strokeWidth?: number } }
         | undefined
     )?.style;
     const isFilled = !style || style.fill === undefined || style.fill !== 'none';
-    if (isFilled) shapes.push(...path.toShapes());
+    console.log(
+      `[svg-logo] path ${pathIdx}: fill=${style?.fill ?? '(default #000)'} stroke=${style?.stroke ?? '(none)'} ` +
+        `strokeWidth=${style?.strokeWidth ?? '(none)'} subPaths=${path.subPaths.length} isFilled=${isFilled}`,
+    );
+    if (isFilled) {
+      const newShapes = path.toShapes();
+      console.log(`[svg-logo]   -> toShapes() produced ${newShapes.length} shape(s)`);
+      shapes.push(...newShapes);
+    }
 
     if (style?.stroke && style.stroke !== 'none' && style.strokeWidth) {
       for (const subPath of path.subPaths) {
         const points = subPath.getPoints();
         if (points.length < 2) continue;
-        // `style` (from path.userData) is a plain object; SVGLoader's own JSDoc types
-        // don't precisely describe it, but it already carries every field pointsToStroke
-        // needs (populated with defaults during parse()).
-        const strokeGeom = SVGLoader.pointsToStroke(points, style as never);
-        if (strokeGeom) {
-          strokeGeometries.push(extrudeFlatMesh(strokeGeom));
-          strokeGeom.dispose();
+        try {
+          // `style` (from path.userData) is a plain object; SVGLoader's own JSDoc types
+          // don't precisely describe it, but it already carries every field pointsToStroke
+          // needs (populated with defaults during parse()).
+          const strokeGeom = SVGLoader.pointsToStroke(points, style as never);
+          if (strokeGeom) {
+            strokeGeometries.push(extrudeFlatMesh(strokeGeom));
+            strokeGeom.dispose();
+            console.log(`[svg-logo]   -> stroke solid built (${points.length} points)`);
+          } else {
+            console.log(`[svg-logo]   -> pointsToStroke() returned null for ${points.length} points`);
+          }
+        } catch (e) {
+          console.error(`[svg-logo]   -> stroke extrusion threw:`, e);
         }
       }
     }
   }
-  if (shapes.length === 0 && strokeGeometries.length === 0) return null;
+  console.log(`[svg-logo] totals: ${shapes.length} filled shape(s), ${strokeGeometries.length} stroke solid(s)`);
+  if (shapes.length === 0 && strokeGeometries.length === 0) {
+    console.log('[svg-logo] nothing vectorizable found -> falling back to raster');
+    return null;
+  }
 
   const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
   const refBox = parseSvgRefBox(doc.documentElement, svgData.paths);
-  if (!(refBox.width > 0) || !(refBox.height > 0)) return null;
+  console.log('[svg-logo] reference box:', refBox);
+  if (!(refBox.width > 0) || !(refBox.height > 0)) {
+    console.log('[svg-logo] degenerate reference box -> falling back to raster');
+    return null;
+  }
 
   const textOnlyUrl = buildTextOnlySvgDataUrl(doc, refBox);
   const textGrid = textOnlyUrl ? await buildLogoGrid({ ...logo, imageDataUrl: textOnlyUrl }).catch(() => null) : null;
+  console.log(`[svg-logo] text overlay: ${textOnlyUrl ? (textGrid ? 'built' : 'FAILED to rasterize') : 'no <text> found'}`);
 
   return {
     shapes,
@@ -279,12 +306,22 @@ function vectorCoverageRatio(data: SvgLogoData): number {
  */
 export function isVectorTrustworthy(svg: SvgLogoData, grid: ReliefGrid | null): boolean {
   const vectorRatio = vectorCoverageRatio(svg);
-  if (vectorRatio > 0.85) return false; // near-total fill is almost never real logo artwork
+  if (vectorRatio > 0.85) {
+    console.log(`[svg-logo] trust check: filled-shape coverage ${vectorRatio.toFixed(2)} > 0.85 -> rejecting`);
+    return false; // near-total fill is almost never real logo artwork
+  }
   const hasOtherInk = svg.textGrid !== null || svg.strokeGeometries.length > 0;
-  if (hasOtherInk || !grid || grid.cells.length === 0) return true; // nothing comparable to cross-check against
+  if (hasOtherInk || !grid || grid.cells.length === 0) {
+    console.log('[svg-logo] trust check: nothing comparable to cross-check against -> trusting');
+    return true;
+  }
   const filled = grid.cells.reduce((n, c) => n + (c ? 1 : 0), 0);
   const rasterRatio = filled / grid.cells.length;
-  return Math.abs(vectorRatio - rasterRatio) <= 0.35;
+  const trusted = Math.abs(vectorRatio - rasterRatio) <= 0.35;
+  console.log(
+    `[svg-logo] trust check: vector=${vectorRatio.toFixed(2)} raster=${rasterRatio.toFixed(2)} -> ${trusted ? 'trusting' : 'rejecting'}`,
+  );
+  return trusted;
 }
 
 /**
