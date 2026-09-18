@@ -1,12 +1,18 @@
 import * as THREE from 'three';
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { ADDITION, Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg';
 import type { LogoConfig, ReliefMode } from '../types';
 import { buildLogoGrid } from './buildLogo';
 import { buildReliefGeometry, computeReliefLayout, reliefZPlacement, type ReliefGrid } from './relief';
 
 export interface SvgLogoData {
-  shapes: THREE.Shape[];
+  /**
+   * The filled paths' combined "ink" footprint, replaying the SVG's own paint order as a
+   * sequence of solid/subtracted layers (see buildInkGeometry) — pre-extruded, spanning
+   * z:[0,1], same raw convention as `strokeGeometries`. Null when nothing ended up as ink.
+   */
+  inkGeometry: THREE.BufferGeometry | null;
   /** Pre-extruded solid stroke ribbons (outline-only paths), spanning z:[0,1] — the same
    *  raw convention as `new THREE.ExtrudeGeometry(shape, { depth: 1 })` before centering,
    *  so both go through the same transform in buildSvgLogoGeometry. */
@@ -173,6 +179,28 @@ function extrudeFlatMesh(flat: THREE.BufferGeometry): THREE.BufferGeometry {
   return geom;
 }
 
+/** Extrudes a set of shapes into one thin (z:[0,1]) solid, merging them into a single geometry. */
+function shapesToThinSolid(shapes: THREE.Shape[]): THREE.BufferGeometry | null {
+  if (shapes.length === 0) return null;
+  const pieces = shapes.map(
+    (s) => new THREE.ExtrudeGeometry(s, { depth: 1, bevelEnabled: false, curveSegments: 24 }),
+  );
+  const merged = pieces.length === 1 ? pieces[0] : mergeGeometries(pieces, false);
+  if (pieces.length > 1) pieces.forEach((p) => p.dispose());
+  return merged;
+}
+
+/** Boolean-combines two thin solids via three-bvh-csg, returning a non-indexed result. */
+function csgOp(a: THREE.BufferGeometry, b: THREE.BufferGeometry, op: typeof ADDITION | typeof SUBTRACTION): THREE.BufferGeometry {
+  const evaluator = new Evaluator();
+  const brushA = new Brush(a, new THREE.MeshStandardMaterial());
+  const brushB = new Brush(b, new THREE.MeshStandardMaterial());
+  brushA.updateMatrixWorld(true);
+  brushB.updateMatrixWorld(true);
+  const result = evaluator.evaluate(brushA, brushB, op);
+  return result.geometry.index ? result.geometry.toNonIndexed() : result.geometry;
+}
+
 /**
  * Builds a variant of the SVG with every non-text visual element hidden (display:none) and
  * its root width/height forced to the reference box — so rasterizing it (via the existing
@@ -209,11 +237,22 @@ function buildTextOnlySvgDataUrl(
 
 /**
  * Parses an SVG logo into extrudable vector geometry for a crisp relief instead of a
- * pixel-box one: filled paths become THREE.Shapes (extruded later), stroke-only paths
- * (fill:none) are extruded directly from their stroke ribbon since `toShapes()` only reads
- * fill geometry and would otherwise drop or wrongly solid-fill them, and any <text>
- * (SVGLoader never parses text) is rasterized separately and pre-aligned as `textGrid` —
- * so the caller can merge a clean vectorized icon with correctly-positioned pixel text.
+ * pixel-box one.
+ *
+ * Filled paths are combined by replaying the SVG's own paint order as a sequence of solid
+ * (ADDITION) and subtracted (SUBTRACTION) layers via CSG, matching what rasterizing the
+ * same file would show: a "dark" (ink) path adds to the accumulated footprint, and a
+ * "light" path — a highlight/background layer drawn on top of ink, like the thin white
+ * bevel bands cut into a solid emblem — subtracts from it instead of just being ignored.
+ * Treating every filled path as independently "should be raised" (or dropping light ones
+ * outright) would either merge unrelated layers into one undifferentiated block or lose
+ * the cutout detail those light layers are there to create.
+ *
+ * Stroke-only paths (fill:none) are extruded directly from their stroke ribbon, since
+ * `toShapes()` only reads fill geometry and would otherwise drop or wrongly solid-fill
+ * them. Any <text> (SVGLoader never parses text) is rasterized separately and pre-aligned
+ * as `textGrid`, so the caller can merge a clean vectorized icon with correctly-positioned
+ * pixel text.
  */
 export async function parseSvgLogo(logo: LogoConfig): Promise<SvgLogoData | null> {
   if (!logo.imageDataUrl) return null;
@@ -223,7 +262,7 @@ export async function parseSvgLogo(logo: LogoConfig): Promise<SvgLogoData | null
   const svgData = loader.parse(svgText);
   console.log(`[svg-logo] parsed ${svgData.paths.length} path(s) from the source SVG`);
 
-  const shapes: THREE.Shape[] = [];
+  let inkGeometry: THREE.BufferGeometry | null = null;
   const strokeGeometries: THREE.BufferGeometry[] = [];
   let pathIdx = 0;
   for (const path of svgData.paths) {
@@ -235,12 +274,11 @@ export async function parseSvgLogo(logo: LogoConfig): Promise<SvgLogoData | null
     )?.style;
     const isFilled = !style || style.fill === undefined || style.fill !== 'none';
     const luminance = fillLuminance(style?.fill);
-    // Same rule as the raster path: only "dark" (below threshold) fill counts as ink that
-    // should become raised material — otherwise a background/highlight layer (e.g. a
-    // full-bleed backdrop rect, or a light bevel facet) would get extruded right along
-    // with the actual icon, merging into one undifferentiated block. A color that can't be
-    // read as a resolved rgb() (typically a gradient) defaults to "ink", same as the
-    // raster path treats anything it can't classify.
+    // Same rule as the raster path: only "dark" (below threshold) fill counts as ink to
+    // add; a "light" fill subtracts from whatever ink has accumulated so far instead
+    // (see the function doc comment). A color that can't be read as a resolved rgb()
+    // (typically a gradient) defaults to "ink", same as the raster path treats anything
+    // it can't classify.
     let isInk = luminance === null ? true : luminance < logo.threshold;
     if (logo.invert) isInk = !isInk;
     console.log(
@@ -248,10 +286,27 @@ export async function parseSvgLogo(logo: LogoConfig): Promise<SvgLogoData | null
         `stroke=${style?.stroke ?? '(none)'} strokeWidth=${style?.strokeWidth ?? '(none)'} ` +
         `subPaths=${path.subPaths.length} isFilled=${isFilled} isInk=${isInk}`,
     );
-    if (isFilled && isInk) {
+    if (isFilled) {
       const newShapes = path.toShapes();
+      const solid = shapesToThinSolid(newShapes);
       console.log(`[svg-logo]   -> toShapes() produced ${newShapes.length} shape(s)`);
-      shapes.push(...newShapes);
+      if (solid) {
+        if (!inkGeometry) {
+          if (isInk) {
+            inkGeometry = solid;
+            console.log('[svg-logo]   -> started ink accumulator');
+          } else {
+            solid.dispose(); // nothing accumulated yet to subtract this from
+            console.log('[svg-logo]   -> light layer with nothing to subtract from, skipped');
+          }
+        } else {
+          const combined = csgOp(inkGeometry, solid, isInk ? ADDITION : SUBTRACTION);
+          inkGeometry.dispose();
+          solid.dispose();
+          inkGeometry = combined;
+          console.log(`[svg-logo]   -> ${isInk ? 'added to' : 'subtracted from'} ink accumulator`);
+        }
+      }
     }
 
     const strokeLuminance = fillLuminance(style?.stroke);
@@ -279,8 +334,8 @@ export async function parseSvgLogo(logo: LogoConfig): Promise<SvgLogoData | null
       }
     }
   }
-  console.log(`[svg-logo] totals: ${shapes.length} filled shape(s), ${strokeGeometries.length} stroke solid(s)`);
-  if (shapes.length === 0 && strokeGeometries.length === 0) {
+  console.log(`[svg-logo] totals: ink accumulator ${inkGeometry ? 'built' : 'empty'}, ${strokeGeometries.length} stroke solid(s)`);
+  if (!inkGeometry && strokeGeometries.length === 0) {
     console.log('[svg-logo] nothing vectorizable found -> falling back to raster');
     return null;
   }
@@ -298,7 +353,7 @@ export async function parseSvgLogo(logo: LogoConfig): Promise<SvgLogoData | null
   console.log(`[svg-logo] text overlay: ${textOnlyUrl ? (textGrid ? 'built' : 'FAILED to rasterize') : 'no <text> found'}`);
 
   return {
-    shapes,
+    inkGeometry,
     strokeGeometries,
     refMinX: refBox.minX,
     refMinY: refBox.minY,
@@ -337,7 +392,7 @@ export function buildSvgLogoGeometry(
   // the text piece below) already bakes zCenter into its output rather than leaving it
   // local-centered, so everything needs to land at the same final Z *before* merging, not
   // via a shared translate afterward (that would shift the text piece a second time).
-  // Both shapes and pre-built stroke solids span z:0..1 raw.
+  // Both the ink geometry and pre-built stroke solids span z:0..1 raw.
   const placeInFrame = (geom: THREE.BufferGeometry) => {
     geom.translate(-centerX, -centerY, -0.5);
     geom.scale(scale, -scale, boxDepth);
@@ -346,9 +401,8 @@ export function buildSvgLogoGeometry(
   };
 
   const pieces: THREE.BufferGeometry[] = [];
-  for (const shape of data.shapes) {
-    const geom = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false, curveSegments: 24 });
-    pieces.push(placeInFrame(geom));
+  if (data.inkGeometry) {
+    pieces.push(placeInFrame(data.inkGeometry.clone()));
   }
   for (const strokeGeom of data.strokeGeometries) {
     pieces.push(placeInFrame(strokeGeom.clone()));
