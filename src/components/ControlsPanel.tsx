@@ -1,10 +1,11 @@
-import type { ChangeEvent } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { useKeychainStore } from '../store';
 import type { ShapeType, ReliefMode } from '../types';
 import { ColorField, SelectField, Section, SliderField, TextField, ToggleField } from './fields';
 import { TextZoneSection } from './TextZoneSection';
 import { MailMergeSection } from './MailMergeSection';
 import { downloadBlob } from '../utils/download';
+import { fetchImageAsDataUrl } from '../utils/fetchImage';
 
 const SHAPE_OPTIONS: { value: ShapeType; label: string }[] = [
   { value: 'rounded-rect', label: 'Rectangle arrondi' },
@@ -49,6 +50,10 @@ export function ControlsPanel({ onExport, onExport3MF, exporting }: Props) {
   const reset = useKeychainStore((s) => s.reset);
   const loadConfig = useKeychainStore((s) => s.loadConfig);
 
+  const [logoUrl, setLogoUrl] = useState('');
+  const [logoUrlLoading, setLogoUrlLoading] = useState(false);
+  const [logoUrlError, setLogoUrlError] = useState<string | null>(null);
+
   function handleLogoUpload(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -57,6 +62,21 @@ export function ControlsPanel({ onExport, onExport3MF, exporting }: Props) {
       setLogo({ imageDataUrl: reader.result as string, enabled: true });
     };
     reader.readAsDataURL(file);
+  }
+
+  async function handleLogoUrlLoad() {
+    const url = logoUrl.trim();
+    if (!url) return;
+    setLogoUrlLoading(true);
+    setLogoUrlError(null);
+    try {
+      const dataUrl = await fetchImageAsDataUrl(url);
+      setLogo({ imageDataUrl: dataUrl, enabled: true });
+    } catch (e) {
+      setLogoUrlError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLogoUrlLoading(false);
+    }
   }
 
   function handleFontUpload(e: ChangeEvent<HTMLInputElement>) {
@@ -349,6 +369,33 @@ export function ControlsPanel({ onExport, onExport3MF, exporting }: Props) {
               <img src={config.logo.imageDataUrl} alt="Aperçu du logo" />
             </div>
           )}
+        </label>
+        <label className="field">
+          <div className="field-row">
+            <span>Ou depuis une URL (image, SVG...)</span>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input
+              type="text"
+              placeholder="https://..."
+              value={logoUrl}
+              onChange={(e) => setLogoUrl(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleLogoUrlLoad}
+              disabled={logoUrlLoading || !logoUrl.trim()}
+            >
+              {logoUrlLoading ? '...' : 'Charger'}
+            </button>
+          </div>
+          {logoUrlError && <p className="field-hint field-error">{logoUrlError}</p>}
+          <p className="field-hint">
+            Ne fonctionne que si le site source autorise le CORS (Wikimedia par exemple) — sinon, télécharge
+            l'image et utilise l'import de fichier ci-dessus.
+          </p>
         </label>
         {config.logo.enabled && (
           <>
