@@ -16,7 +16,7 @@ export async function collectGrids(config: KeychainConfig): Promise<KeychainInpu
   const isSvgLogo = config.logo.imageDataUrl?.startsWith(SVG_DATA_URL_PREFIX) ?? false;
   const logoSvg =
     config.logo.enabled && config.logo.vectorize && isSvgLogo
-      ? await parseSvgLogo(config.logo.imageDataUrl!).catch(() => null)
+      ? await parseSvgLogo(config.logo).catch(() => null)
       : null;
   const text1Grid = config.text1.enabled ? await buildTextGrid(config.text1) : null;
   const text2Grid = config.text2.enabled ? await buildTextGrid(config.text2) : null;

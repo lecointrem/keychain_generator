@@ -72,7 +72,7 @@ export function useKeychainGeometry(config: KeychainConfig) {
       setLogoSvg(null);
       return;
     }
-    parseSvgLogo(debounced.logo.imageDataUrl)
+    parseSvgLogo(debounced.logo)
       .then((data) => {
         if (!cancelled) setLogoSvg(data);
       })
@@ -83,7 +83,14 @@ export function useKeychainGeometry(config: KeychainConfig) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debounced.logo.enabled, debounced.logo.imageDataUrl, debounced.logo.vectorize]);
+  }, [
+    debounced.logo.enabled,
+    debounced.logo.imageDataUrl,
+    debounced.logo.vectorize,
+    debounced.logo.resolution,
+    debounced.logo.threshold,
+    debounced.logo.invert,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
